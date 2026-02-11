@@ -1,0 +1,7 @@
+streamlit
+pandas
+matplotlib
+fpdf2
+python-pptx
+openpyxl
+pillow

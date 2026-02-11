@@ -1,0 +1,37 @@
+{
+  "form_name": "ATA Audit the Auditor",
+  "parameters": [
+    {
+      "Parameter": "Accuracy of Scoring",
+      "Description": "Applied the scoring correctly with no unjustified or incorrect deductions"
+    },
+    {
+      "Parameter": "Adherence to QA Guidelines",
+      "Description": "Followed QA process and aligned with calibration standards"
+    },
+    {
+      "Parameter": "Evidence & Notes",
+      "Description": "Left a clear, specific and improvement-focused comment"
+    },
+    {
+      "Parameter": "Objectivity & Fairness",
+      "Description": "Evaluation is unbiased and fact-based"
+    },
+    {
+      "Parameter": "Critical Error Identification",
+      "Description": "Correct identification of fatal errors"
+    },
+    {
+      "Parameter": "Evaluation Variety & Sample Coverage",
+      "Description": "Evaluations cover a balanced mix of call durations and call types"
+    },
+    {
+      "Parameter": "Feedback Actionability",
+      "Description": "Conducted coaching session on the call topic (If required)"
+    },
+    {
+      "Parameter": "Timeliness & Completeness",
+      "Description": "On track with the evaluations target SLA"
+    }
+  ]
+}
