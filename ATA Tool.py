@@ -1,101 +1,204 @@
 import io
 import json
 import os
+import sys
 import tempfile
 from datetime import date, datetime
-from email.mime.application import MIMEApplication
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from fpdf import FPDF
-from PIL import Image
+from openpyxl import load_workbook
+from openpyxl.styles import Alignment, Font, PatternFill
 from pptx import Presentation
-from pptx.util import Inches, Pt
+from pptx.util import Inches
 
 # -------------------- APP CONFIG --------------------
 st.set_page_config(page_title="DAMAC | ATA Tool", layout="wide")
 
-PARAMETERS_JSON = "parameters.json"
-EXPORT_XLSX = "ATA_Audit_Log.xlsx"
-LOGO_FILE = "logo.png"  # optional
+def get_data_dir() -> Path:
+    if getattr(sys, "frozen", False):
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    else:
+        base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+    data_dir = base / "ATA_Tool"
+    data_dir.mkdir(parents=True, exist_ok=True)
+    return data_dir
+
+
+DATA_DIR = get_data_dir()
+PARAMETERS_JSON = str(DATA_DIR / "parameters.json")
+EXPORT_XLSX = str(DATA_DIR / "ATA_Audit_Log.xlsx")
 
 DAMAC_TITLE = "DAMAC Properties"
 DAMAC_SUB1 = "Quality Assurance"
 DAMAC_SUB2 = "Telesales Division"
 APP_NAME = "ATA Audit the Auditor"
 
+LOGO_URL = "https://images.ctfassets.net/zoq5l15g49wj/2qCUAnuJ9WgJiGNxmTXkUa/0505928e3d7060e1bc0c3195d7def448/damac-gold.svg?fm=webp&w=200&h=202&fit=pad&q=60"
+
 # -------------------- UI THEME --------------------
 st.markdown(
     """
 <style>
-.block-container { padding-top: 1.0rem; }
-div[data-testid="stMetric"] { background:#ffffff; border:1px solid #eceff3; padding:14px; border-radius:14px; }
-.ata-hero{
-  background: linear-gradient(90deg, #0b1f3a, #173a6b);
-  padding: 18px 18px;
-  border-radius: 18px;
-  color: white;
-  border: 1px solid rgba(255,255,255,.10);
+.block-container { padding-top: 1.0rem; font-family: "Candara", "Segoe UI", sans-serif; }
+.stApp, .stMarkdown, .stTextInput, .stSelectbox, .stDataEditor, .stButton, .stTable, .stDataFrame {
+  font-family: "Candara", "Segoe UI", sans-serif;
 }
-.ata-hero .t1 { font-size: 20px; font-weight: 900; margin: 0; }
-.ata-hero .t2 { font-size: 13px; opacity: .92; margin: 0; margin-top: 6px; line-height:1.5; }
-.ata-card { background:#fff; border:1px solid #eceff3; border-radius:16px; padding:16px; }
-.ata-muted { color:#6b7280; font-size:13px; line-height:1.6; }
-.small-note { color:#6b7280; font-size:12px; line-height:1.5; }
-.kpi-chip{
-  display:inline-block;
-  padding:6px 10px;
-  border-radius:999px;
-  background:#f6f8fb;
-  border:1px solid #eceff3;
-  margin-right:6px;
-  font-size:12px;
-  color:#374151;
+.ata-hero{
+  background: linear-gradient(135deg, #0b1f3a 0%, #1e3a8a 100%);
+  padding: 22px;
+  border-radius: 20px;
+  color: white;
+  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
+  margin-bottom: 25px;
+}
+.ata-hero.left-align {
+  text-align: left;
+}
+.ata-hero .t1 { font-size: 28px; font-weight: 900; margin: 0; letter-spacing: 1px; }
+.ata-hero .t2 { font-size: 16px; opacity: .85; margin-top: 8px; }
+
+.stat-card {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+    text-align: center;
+    transition: transform 0.2s;
+}
+.stat-card:hover { transform: translateY(-5px); }
+.stat-val { font-size: 24px; font-weight: 800; color: #0b1f3a; }
+.stat-label { font-size: 14px; color: #64748b; margin-top: 5px; }
+
+.ata-card { background:#fff; border:1px solid #eceff3; border-radius:16px; padding:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+
+.styled-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0;
+    font-size: 14px;
+}
+.styled-table th {
+    background-color: #0b1f3a;
+    color: #ffffff;
+    text-align: left;
+    padding: 12px 15px;
+}
+.styled-table td {
+    padding: 10px 15px;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.credit-line {
+    text-align: left;
+    font-size: 12px;
+    color: #0b1f3a;
+    margin-top: 5px;
+    font-style: italic;
+    font-weight: 700;
+}
+    .sidebar-credit {
+        margin-top: 12px;
+    }
+.logo-box {
+    background: linear-gradient(135deg, #0b1f3a 0%, #1e3a8a 100%);
+    border-radius: 14px;
+    padding: 8px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 12px;
+}
+.credit-box {
+    background: linear-gradient(135deg, #0b1f3a 0%, #1e3a8a 100%);
+    border-radius: 14px;
+    padding: 10px 12px;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);
+    margin-top: 10px;
+    width: 100%;
+}
+.credit-box .credit-line {
+    color: #CEAE72;
+    margin: 0;
+    font-weight: 700;
+}
+.view-header h2 {
+    color: #0b1f3a;
+    font-weight: 800;
+    margin-bottom: 12px;
+}
+.page-title {
+    margin-top: 10px;
+    margin-bottom: 12px;
 }
 </style>
 """,
     unsafe_allow_html=True,
 )
 
-# -------------------- PARAMETERS --------------------
+# -------------------- RUBRIC (SHEET-ALIGNED) --------------------
+ACCURACY_HEADER = "Accuracy of Scoring"
+
+ACCURACY_SUBPARAMS = [
+    "Call Opening (Readiness / energy)",
+    "Call Opening 2 (Confirming lead source / meeting focused)",
+    "Effective Probing / Qualifying client",
+    "Accurate / Complete info",
+    "Objection / Call Handling",
+    "Soft Skills (active listening - building rapport)",
+    "Positivity / professionality / politeness",
+    "Call closure / meeting summarized",
+    "Accurate Disposition",
+    "Comment / notes",
+    "Accurate Data inputs / shows",
+    "WhatsApp message sent",
+    "Took lead ownership",
+    "Follow-up made properly",
+]
+
+EVALUATION_QUALITY_PARAMS = [
+    ("Adherence to QA Guidelines", "Followed QA process and aligned with calibration standards"),
+    ("Evidence & Notes", "Left a clear, specific and improvement-focused comment"),
+    ("Objectivity & Fairness", "Evaluation is unbiased and fact-based"),
+    ("Critical Error Identification", "Correct identification of fatal errors"),
+    (
+        "Evaluation Variety & Sample Coverage",
+        "Evaluations cover a balanced mix of call durations and call types",
+    ),
+    ("Feedback Actionability", "Conducted coaching session on the call topic (If required)"),
+    ("Timeliness & Completeness", "On track with the evaluations target SLA"),
+]
+
 DEFAULT_PARAMETERS = {
     "form_name": APP_NAME,
     "parameters": [
         {
-            "Parameter": "Accuracy of Scoring",
-            "Description": "Applied the scoring correctly with no unjustified or incorrect deductions",
+            "Parameter": ACCURACY_HEADER,
+            "Description": "Header (not scored) | Category total = 14 points",
+            "Points": 0,
+            "Group": "HEADER",
         },
-        {
-            "Parameter": "Adherence to QA Guidelines",
-            "Description": "Followed QA process and aligned with calibration standards",
-        },
-        {
-            "Parameter": "Evidence & Notes",
-            "Description": "Left a clear, specific and improvement-focused comment",
-        },
-        {
-            "Parameter": "Objectivity & Fairness",
-            "Description": "Evaluation is unbiased and fact-based",
-        },
-        {
-            "Parameter": "Critical Error Identification",
-            "Description": "Correct identification of fatal errors",
-        },
-        {
-            "Parameter": "Evaluation Variety & Sample Coverage",
-            "Description": "Evaluations cover a balanced mix of call durations and call types",
-        },
-        {
-            "Parameter": "Feedback Actionability",
-            "Description": "Conducted coaching session on the call topic (If required)",
-        },
-        {
-            "Parameter": "Timeliness & Completeness",
-            "Description": "On track with the evaluations target SLA",
-        },
+        *[
+            {
+                "Parameter": p,
+                "Description": "Accuracy of Scoring – Sub Parameter",
+                "Points": 1,
+                "Group": "ACCURACY_SUB",
+            }
+            for p in ACCURACY_SUBPARAMS
+        ],
+        *[
+            {"Parameter": p, "Description": d, "Points": 1, "Group": "EVAL_QUALITY"}
+            for (p, d) in EVALUATION_QUALITY_PARAMS
+        ],
     ],
 }
 
@@ -111,12 +214,43 @@ def load_parameters_df() -> pd.DataFrame:
     with open(PARAMETERS_JSON, "r", encoding="utf-8") as f:
         cfg = json.load(f)
     df = pd.DataFrame(cfg.get("parameters", []))
+    if df.empty:
+        df = pd.DataFrame(DEFAULT_PARAMETERS["parameters"])
     df["Result"] = "Pass"
     df["Comment"] = ""
-    return df[["Parameter", "Description", "Result", "Comment"]]
+    for c in ["Parameter", "Points", "Description", "Result", "Comment", "Group"]:
+        if c not in df.columns:
+            df[c] = "" if c in ("Description", "Comment", "Group") else 1
+    df["Points"] = pd.to_numeric(df["Points"], errors="coerce").fillna(0).astype(int)
+    return df[["Group", "Parameter", "Points", "Description", "Result", "Comment"]].copy()
 
 
-# -------------------- ID NORMALIZATION --------------------
+def normalize_details_df(df: pd.DataFrame) -> pd.DataFrame:
+    if df is None or df.empty or "Parameter" not in df.columns:
+        return load_parameters_df()
+    for col in ["Group", "Parameter", "Points", "Description", "Result", "Comment"]:
+        if col not in df.columns:
+            if col in ("Description", "Comment", "Group"):
+                df[col] = ""
+            elif col == "Result":
+                df[col] = "Pass"
+            else:
+                df[col] = 1
+    return df[["Group", "Parameter", "Points", "Description", "Result", "Comment"]].copy()
+
+
+def format_date(value) -> str:
+    if value in ("", None):
+        return ""
+    try:
+        parsed = pd.to_datetime(value, dayfirst=True)
+        if pd.isna(parsed):
+            return ""
+        return parsed.strftime("%d/%m/%Y")
+    except Exception:
+        return str(value)
+
+
 def norm_id(x) -> str:
     if x is None:
         return ""
@@ -131,7 +265,6 @@ def norm_id(x) -> str:
     return s
 
 
-# -------------------- EXCEL HELPERS --------------------
 def safe_read_excel(path: str, sheet: str) -> pd.DataFrame:
     if not os.path.exists(path):
         return pd.DataFrame()
@@ -142,15 +275,10 @@ def safe_read_excel(path: str, sheet: str) -> pd.DataFrame:
 
 
 def next_evaluation_id(evaluation_date_str: str) -> str:
-    """
-    Enterprise ID: ATA-YYYYMMDD-0001
-    Sequence resets per evaluation date.
-    """
     yyyymmdd = evaluation_date_str.replace("-", "")
     summary = safe_read_excel(EXPORT_XLSX, "Summary")
     if summary.empty or "Evaluation ID" not in summary.columns:
         return f"ATA-{yyyymmdd}-0001"
-
     prefix = f"ATA-{yyyymmdd}-"
     existing = summary["Evaluation ID"].apply(norm_id)
     existing = existing[existing.str.startswith(prefix)]
@@ -167,898 +295,1308 @@ def next_evaluation_id(evaluation_date_str: str) -> str:
     return f"ATA-{yyyymmdd}-{max_seq + 1:04d}"
 
 
+def write_formatted_report(
+    record: dict,
+    filename: str,
+    summary_df: pd.DataFrame | None = None,
+    details_df: pd.DataFrame | None = None,
+) -> None:
+    if not os.path.exists(filename):
+        return
+    wb = load_workbook(filename)
+    sheet_name = "Formatted Report"
+    if sheet_name in wb.sheetnames:
+        del wb[sheet_name]
+    ws = wb.create_sheet(sheet_name)
+
+    header_dark_blue = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+    header_gray = PatternFill(start_color="C9C9C9", end_color="C9C9C9", fill_type="solid")
+    header_light_gray = PatternFill(start_color="E5E5E5", end_color="E5E5E5", fill_type="solid")
+    white_fill = PatternFill(start_color="FFFFFF", end_color="FFFFFF", fill_type="solid")
+    header_font = Font(color="FFFFFF", bold=True)
+    dark_font = Font(color="000000", bold=True)
+    center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+
+    details_cols = [
+        "Evaluation ID",
+        "Evaluation Date",
+        "Audit Date",
+        "Reaudit",
+        "QA Name",
+        "Auditor",
+        "Call ID",
+        "Overall Score %",
+    ]
+    acc_cols = ACCURACY_SUBPARAMS
+    eval_cols = [p for p, _ in EVALUATION_QUALITY_PARAMS]
+    all_cols = details_cols + acc_cols + eval_cols
+
+    details_start = 1
+    details_end = details_start + len(details_cols) - 1
+    acc_start = details_end + 1
+    acc_end = acc_start + len(acc_cols) - 1
+    eval_start = acc_end + 1
+    eval_end = eval_start + len(eval_cols) - 1
+
+    ws.row_dimensions[1].height = 10
+    header_row = 2
+    label_row = 3
+    data_start_row = 4
+
+    ws.merge_cells(start_row=header_row, start_column=details_start, end_row=header_row, end_column=details_end)
+    ws.merge_cells(start_row=header_row, start_column=acc_start, end_row=header_row, end_column=acc_end)
+    ws.merge_cells(start_row=header_row, start_column=eval_start, end_row=header_row, end_column=eval_end)
+
+    ws.cell(row=header_row, column=details_start, value="Details").fill = header_dark_blue
+    ws.cell(row=header_row, column=details_start).font = header_font
+    ws.cell(row=header_row, column=details_start).alignment = center
+
+    ws.cell(row=header_row, column=acc_start, value="ACCURACY_SUB").fill = header_gray
+    ws.cell(row=header_row, column=acc_start).font = dark_font
+    ws.cell(row=header_row, column=acc_start).alignment = center
+
+    ws.cell(row=header_row, column=eval_start, value="EVAL_QUALITY").fill = header_light_gray
+    ws.cell(row=header_row, column=eval_start).font = dark_font
+    ws.cell(row=header_row, column=eval_start).alignment = center
+
+    for idx, col_name in enumerate(all_cols, start=1):
+        cell = ws.cell(row=label_row, column=idx, value=col_name)
+        cell.alignment = center
+        if idx <= details_end:
+            cell.fill = header_dark_blue
+            cell.font = header_font
+        elif idx <= acc_end:
+            cell.fill = header_gray
+            cell.font = dark_font
+        else:
+            cell.fill = header_light_gray
+            cell.font = dark_font
+
+    summary = summary_df if summary_df is not None else safe_read_excel(filename, "Summary")
+    details = details_df if details_df is not None else safe_read_excel(filename, "Details")
+    if not summary.empty:
+        summary = summary.dropna(axis=1, how="all")
+    if summary.empty or details.empty:
+        wb.save(filename)
+        return
+    if "Parameter" not in details.columns:
+        wb.save(filename)
+        return
+    details_lookup = {
+        eval_id: details[details["Evaluation ID"] == eval_id]
+        for eval_id in summary["Evaluation ID"].dropna().unique().tolist()
+    }
+    for row_idx, row_data in enumerate(summary.to_dict(orient="records"), start=data_start_row):
+        eval_id = row_data.get("Evaluation ID", "")
+        details_values = [
+            row_data.get("Evaluation ID", ""),
+            format_date(row_data.get("Evaluation Date", "")),
+            format_date(row_data.get("Audit Date", "")),
+            row_data.get("Reaudit", ""),
+            row_data.get("QA Name", ""),
+            row_data.get("Auditor", ""),
+            row_data.get("Call ID", ""),
+            f"{row_data.get('Overall Score %', 0):.2f}%",
+        ]
+        detail_rows = details_lookup.get(eval_id, pd.DataFrame())
+        if detail_rows.empty or "Parameter" not in detail_rows.columns:
+            acc_values = ["" for _ in acc_cols]
+            eval_values = ["" for _ in eval_cols]
+        else:
+            acc_values = []
+            for param in acc_cols:
+                match = detail_rows[detail_rows["Parameter"] == param]
+                acc_values.append(match.iloc[0]["Result"] if not match.empty else "")
+            eval_values = []
+            for param in eval_cols:
+                match = detail_rows[detail_rows["Parameter"] == param]
+                eval_values.append(match.iloc[0]["Result"] if not match.empty else "")
+        values = details_values + acc_values + eval_values
+        for idx, value in enumerate(values, start=1):
+            cell = ws.cell(row=row_idx, column=idx, value=value)
+            cell.fill = white_fill
+            cell.alignment = center
+        ws.row_dimensions[row_idx].height = 20
+
+    ws.row_dimensions[header_row].height = 20
+    ws.row_dimensions[label_row].height = 45
+    for idx in range(1, len(all_cols) + 1):
+        ws.column_dimensions[ws.cell(row=label_row, column=idx).column_letter].width = 18
+    wb.save(filename)
+
+
 def upsert_excel(record: dict) -> None:
     summary_existing = safe_read_excel(EXPORT_XLSX, "Summary")
     details_existing = safe_read_excel(EXPORT_XLSX, "Details")
-
     rid = norm_id(record["evaluation_id"])
-
     if not summary_existing.empty and "Evaluation ID" in summary_existing.columns:
         summary_existing["_rid"] = summary_existing["Evaluation ID"].apply(norm_id)
-        summary_existing = summary_existing[summary_existing["_rid"] != rid].drop(columns=["_rid"], errors="ignore")
-
+        summary_existing = summary_existing[summary_existing["_rid"] != rid].drop(
+            columns=["_rid"], errors="ignore"
+        )
     if not details_existing.empty and "Evaluation ID" in details_existing.columns:
         details_existing["_rid"] = details_existing["Evaluation ID"].apply(norm_id)
-        details_existing = details_existing[details_existing["_rid"] != rid].drop(columns=["_rid"], errors="ignore")
-
+        details_existing = details_existing[details_existing["_rid"] != rid].drop(
+            columns=["_rid"], errors="ignore"
+        )
     summary_row = pd.DataFrame(
         [
             {
                 "Evaluation ID": rid,
                 "Evaluation Date": record["evaluation_date"],
                 "Audit Date": record["audit_date"],
+                "Reaudit": record["reaudit"],
                 "QA Name": record["qa_name"],
                 "Auditor": record["auditor"],
                 "Call ID": record["call_id"],
                 "Call Duration": record["call_duration"],
                 "Call Disposition": record["call_disposition"],
                 "Overall Score %": record["overall_score"],
-                "Passed": record["passed"],
-                "Failed": record["failed"],
+                "Passed Points": record["passed_points"],
+                "Failed Points": record["failed_points"],
+                "Total Points": record["total_points"],
                 "Last Updated": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             }
         ]
     )
-
-    details_df = record["details"].copy()
-    details_df.insert(0, "Evaluation ID", rid)
-    details_df.insert(1, "Evaluation Date", record["evaluation_date"])
-    details_df.insert(2, "Audit Date", record["audit_date"])
-    details_df.insert(3, "QA Name", record["qa_name"])
-    details_df.insert(4, "Auditor", record["auditor"])
-    details_df.insert(5, "Call ID", record["call_id"])
-    details_df.insert(6, "Overall Score %", record["overall_score"])
-
+    details_df = normalize_details_df(record["details"])
+    details_map = {
+        "Evaluation ID": record["evaluation_id"],
+        "Evaluation Date": record["evaluation_date"],
+        "Audit Date": record["audit_date"],
+        "Reaudit": record["reaudit"],
+        "QA Name": record["qa_name"],
+        "Auditor": record["auditor"],
+        "Call ID": record["call_id"],
+        "Overall Score %": record["overall_score"],
+    }
+    details_df = details_df.drop(columns=list(details_map.keys()), errors="ignore")
+    for i, col in enumerate(details_map):
+        details_df.insert(i, col, details_map[col])
     out_summary = pd.concat([summary_existing, summary_row], ignore_index=True)
     out_details = pd.concat([details_existing, details_df], ignore_index=True)
-
     with pd.ExcelWriter(EXPORT_XLSX, engine="openpyxl") as writer:
         out_summary.to_excel(writer, sheet_name="Summary", index=False)
         out_details.to_excel(writer, sheet_name="Details", index=False)
+    write_formatted_report(record, EXPORT_XLSX, out_summary, out_details)
+    if "Formatted Report" not in load_workbook(EXPORT_XLSX).sheetnames:
+        write_formatted_report(record, EXPORT_XLSX, out_summary, out_details)
 
 
 def delete_evaluation(eval_id: str) -> bool:
     rid = norm_id(eval_id)
     summary_existing = safe_read_excel(EXPORT_XLSX, "Summary")
     details_existing = safe_read_excel(EXPORT_XLSX, "Details")
-
     if summary_existing.empty and details_existing.empty:
         return False
-
     changed = False
-
     if not summary_existing.empty and "Evaluation ID" in summary_existing.columns:
         summary_existing["_rid"] = summary_existing["Evaluation ID"].apply(norm_id)
         before = len(summary_existing)
-        summary_existing = summary_existing[summary_existing["_rid"] != rid].drop(columns=["_rid"], errors="ignore")
+        summary_existing = summary_existing[summary_existing["_rid"] != rid].drop(
+            columns=["_rid"], errors="ignore"
+        )
         changed = changed or (len(summary_existing) != before)
-
     if not details_existing.empty and "Evaluation ID" in details_existing.columns:
         details_existing["_rid"] = details_existing["Evaluation ID"].apply(norm_id)
         before = len(details_existing)
-        details_existing = details_existing[details_existing["_rid"] != rid].drop(columns=["_rid"], errors="ignore")
+        details_existing = details_existing[details_existing["_rid"] != rid].drop(
+            columns=["_rid"], errors="ignore"
+        )
         changed = changed or (len(details_existing) != before)
-
     with pd.ExcelWriter(EXPORT_XLSX, engine="openpyxl") as writer:
         summary_existing.to_excel(writer, sheet_name="Summary", index=False)
         details_existing.to_excel(writer, sheet_name="Details", index=False)
-
+    if not summary_existing.empty and not details_existing.empty:
+        dummy_record = {
+            "evaluation_id": rid,
+            "evaluation_date": "",
+            "audit_date": "",
+            "reaudit": "",
+            "qa_name": "",
+            "auditor": "",
+            "call_id": "",
+            "overall_score": 0,
+            "details": details_existing,
+        }
+        write_formatted_report(dummy_record, EXPORT_XLSX, summary_existing, details_existing)
     return changed
 
 
-# -------------------- SCORING --------------------
-def overall_score(df: pd.DataFrame) -> float:
-    total = len(df)
-    if total == 0:
-        return 0.0
-    passed = int((df["Result"] == "Pass").sum())
-    return round((passed / total) * 100, 2)
+def compute_weighted_score(df: pd.DataFrame) -> dict:
+    df = df.copy()
+    df["Result"] = df["Result"].fillna("Pass")
+    accuracy_rows = df[df["Group"] == "ACCURACY_SUB"]
+    eval_quality_rows = df[df["Group"] == "EVAL_QUALITY"]
+
+    accuracy_failed = (accuracy_rows["Result"] == "Fail").any()
+    accuracy_points = 1
+    accuracy_passed = 0 if accuracy_failed else 1
+
+    eval_quality_total = int(len(eval_quality_rows))
+    eval_quality_passed = int((eval_quality_rows["Result"] == "Pass").sum())
+
+    total_points = accuracy_points + eval_quality_total
+    passed_points = accuracy_passed + eval_quality_passed
+    failed_points = total_points - passed_points
+    score = round((passed_points / total_points) * 100, 2) if total_points else 0.0
+    return {
+        "score": score,
+        "passed_points": passed_points,
+        "failed_points": failed_points,
+        "total_points": total_points,
+    }
 
 
-# -------------------- EMAIL HTML --------------------
+# -------------------- EXPORT HELPERS --------------------
+def copy_to_clipboard_button(label: str, text_to_copy: str, key: str) -> None:
+    safe_text = text_to_copy.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
+    html = f"""
+    <button id="btn-{key}" style="width:100%;padding:10px;background:#0b1f3a;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">{label}</button>
+    <script>
+      document.getElementById("btn-{key}").onclick = () => {{
+        const text = `{safe_text}`;
+        const htmlBlob = new Blob([text], {{ type: "text/html" }});
+        const plainBlob = new Blob([text], {{ type: "text/plain" }});
+        navigator.clipboard.write([
+          new ClipboardItem({{ "text/html": htmlBlob, "text/plain": plainBlob }})
+        ]).then(() => {{
+          const el = document.getElementById("copystatus-{key}");
+          if(el) el.innerText = "Email copied to clipboard!";
+        }});
+      }};
+    </script>
+    <div id="copystatus-{key}" style="font-family:sans-serif;color:#10b981;font-size:12px;margin-top:5px;text-align:center;"></div>
+    """
+    components.html(html, height=70)
+
+
 def email_html_inline(record: dict) -> str:
-    rows = []
-    for _, r in record["details"].iterrows():
-        status = r["Result"]
-        badge_style = "display:inline-block;padding:4px 10px;border-radius:999px;font-weight:800;font-size:12px;"
-        if status == "Pass":
-            badge_style += "background:#e9f7ef;color:#1f8f4a;"
-        else:
-            badge_style += "background:#fde8e6;color:#d93025;"
-
-        comment = str(r["Comment"]).strip() if str(r["Comment"]).strip() else "-"
-        rows.append(
-            f"""
-            <tr>
-              <td style="padding:10px;border-bottom:1px solid #eee;">{r['Parameter']}</td>
-              <td style="padding:10px;border-bottom:1px solid #eee;width:120px;">
-                <span style="{badge_style}">{status}</span>
-              </td>
-              <td style="padding:10px;border-bottom:1px solid #eee;">{comment}</td>
-            </tr>
-            """
+    def make_table(df):
+        rows = []
+        for _, r in df.iterrows():
+            status = r["Result"]
+            badge = (
+                "background:#e9f7ef;color:#1f8f4a"
+                if status == "Pass"
+                else "#fde8e6;color:#d93025"
+            )
+            badge = f"{badge};padding:4px 8px;border-radius:12px;font-weight:bold;"
+            comm = str(r["Comment"]) if str(r["Comment"]).lower() != "nan" else ""
+            rows.append(
+                "<tr>"
+                f"<td style='padding:8px;border-bottom:1px solid #eee;'>{r['Parameter']}</td>"
+                "<td style='padding:8px;border-bottom:1px solid #eee;text-align:center;'>"
+                f"<span style='{badge}'>{status}</span>"
+                "</td>"
+                f"<td style='padding:8px;border-bottom:1px solid #eee;'>{comm}</td>"
+                "</tr>"
+            )
+        return (
+            "<table style='width:100%;border-collapse:collapse;font-size:13px;'>"
+            "<tr style='background:#f8fafc;'>"
+            "<th style='text-align:left;padding:8px;'>Parameter</th>"
+            "<th style='width:80px;padding:8px;'>Result</th>"
+            "<th style='padding:8px;'>Comment</th>"
+            "</tr>"
+            f"{''.join(rows)}"
+            "</table>"
         )
 
-    return f"""<!doctype html>
-<html>
-<head><meta charset="utf-8"></head>
-<body>
-  <div style="font-family:Calibri, Arial, sans-serif;">
-    <div style="padding:14px 16px;background:#0b1f3a;color:#fff;border-radius:12px;">
-      <div style="font-size:18px;font-weight:800;">{DAMAC_TITLE} | QA Audit Evaluation</div>
-      <div style="opacity:.9;">{DAMAC_SUB1} | {DAMAC_SUB2}</div>
-    </div>
-
-    <div style="margin-top:10px;padding:14px 16px;border:1px solid #eceff3;border-radius:12px;">
-      <div style="font-size:14px;line-height:1.7;">
-        <div><span style="color:#6b7280;">Evaluation ID:</span> {record['evaluation_id']}</div>
-        <div><span style="color:#6b7280;">QA Name:</span> {record['qa_name']}</div>
-        <div><span style="color:#6b7280;">Auditor:</span> {record['auditor']}</div>
-        <div><span style="color:#6b7280;">Evaluation Date:</span> {record['evaluation_date']}</div>
-        <div><span style="color:#6b7280;">Audit Date:</span> {record['audit_date']}</div>
-        <div><span style="color:#6b7280;">Call ID:</span> {record['call_id']}</div>
-        <div><span style="color:#6b7280;">Call Duration:</span> {record['call_duration']}</div>
-        <div><span style="color:#6b7280;">Disposition:</span> {record['call_disposition']}</div>
-      </div>
-
-      <div style="margin-top:10px;padding:10px 12px;background:#f6f8fb;border-radius:12px;">
-        <div style="color:#6b7280;font-size:13px;">Overall Score</div>
-        <div style="font-size:26px;font-weight:900;color:#0b1f3a;line-height:1;">{record['overall_score']}%</div>
-        <div style="color:#6b7280;font-size:13px;margin-top:4px;">Passed: {record['passed']} | Failed: {record['failed']}</div>
-      </div>
-
-      <div style="margin-top:12px;border:1px solid #eceff3;border-radius:12px;overflow:hidden;">
-        <table style="width:100%;border-collapse:collapse;font-size:14px;">
-          <thead>
-            <tr style="background:#f2f5fb;">
-              <th style="text-align:left;padding:10px;">Parameter</th>
-              <th style="text-align:left;padding:10px;width:120px;">Result</th>
-              <th style="text-align:left;padding:10px;">Comment</th>
-            </tr>
-          </thead>
-          <tbody>
-            {''.join(rows)}
-          </tbody>
-        </table>
-      </div>
-
-      <div style="margin-top:10px;color:#6b7280;font-size:12px;">
-        Internal use only.
-      </div>
-    </div>
-  </div>
-</body>
-</html>"""
-
-
-def build_eml(record: dict, html: str, attach_pdf: bool = True) -> bytes:
-    """
-    Creates an .eml draft with a rendered HTML body (Outlook-friendly).
-    User opens the .eml and Outlook will render the HTML.
-    """
-    msg = MIMEMultipart("mixed")
-    subject = f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {record['auditor']}"
-    msg["Subject"] = subject
-
-    alt = MIMEMultipart("alternative")
-    plain = (
-        f"ATA Evaluation\n"
-        f"Evaluation ID: {record['evaluation_id']}\n"
-        f"QA Name: {record['qa_name']}\n"
-        f"Auditor: {record['auditor']}\n"
-        f"Overall Score: {record['overall_score']}%\n"
+    det = record["details"]
+    email_subject = (
+        f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
     )
-    alt.attach(MIMEText(plain, "plain", "utf-8"))
-    alt.attach(MIMEText(html, "html", "utf-8"))
-    msg.attach(alt)
+    return f"""
+    <div style="font-family:sans-serif;max-width:800px;border:1px solid #eee;padding:20px;border-radius:15px;">
+        <div style="background:#0b1f3a;color:white;padding:15px;border-radius:10px;margin-bottom:20px;">
+            <h2 style="margin:0;">{DAMAC_TITLE} | ATA Evaluation</h2>
+            <p style="margin:5px 0 0 0;opacity:0.8;">{DAMAC_SUB1} | {DAMAC_SUB2}</p>
+        </div>
+        <p style="margin:0 0 15px 0;"><b>Email Subject:</b> {email_subject}</p>
+        <table style="width:100%;margin-bottom:20px;font-size:14px;">
+            <tr><td><b>Evaluation ID:</b> {record['evaluation_id']}</td><td><b>Evaluation Date:</b> {record['evaluation_date']}</td></tr>
+            <tr><td><b>QA Name:</b> {record['qa_name']}</td><td><b>Auditor Name:</b> {record['auditor']}</td></tr>
+            <tr><td><b>Audit Date:</b> {record['audit_date']}</td><td><b>Call ID:</b> {record['call_id']}</td></tr>
+            <tr><td><b>Call Duration:</b> {record['call_duration']}</td><td><b>Call Disposition:</b> {record['call_disposition']}</td></tr>
+            <tr><td colspan="2" style="padding-top:10px;"><div style="background:#f1f5f9;padding:10px;border-radius:8px;text-align:center;"><b>Overall Score: <span style="font-size:20px;color:#0b1f3a;">{record['overall_score']:.2f}%</span></b></div></td></tr>
+        </table>
+        <h3 style="color:#0b1f3a;border-left:4px solid #0b1f3a;padding-left:10px;">Accuracy of Scoring</h3>
+        {make_table(det[det["Group"] == "ACCURACY_SUB"])}
+        <h3 style="color:#0b1f3a;border-left:4px solid #0b1f3a;padding-left:10px;margin-top:20px;">Evaluation Quality</h3>
+        {make_table(det[det["Group"] == "EVAL_QUALITY"])}
+        <div style="margin-top:20px;padding:10px;background:#f8fafc;border-radius:8px;"><b>Reaudit Status:</b> {record['reaudit']}</div>
+    </div>
+    """
 
-    if attach_pdf:
-        pdf_bytes = pdf_evaluation(record)
-        part = MIMEApplication(pdf_bytes, _subtype="pdf")
-        part.add_header("Content-Disposition", "attachment", filename=f"ATA_Evaluation_{record['evaluation_id']}.pdf")
-        msg.attach(part)
 
-    return msg.as_bytes()
-
-
-# -------------------- PDF (EVALUATION) --------------------
 class PDFReport(FPDF):
     def header(self):
-        self.set_font("Arial", "B", 11)
-        self.cell(0, 7, f"{DAMAC_TITLE} | {DAMAC_SUB1} | {DAMAC_SUB2}", ln=True, align="C")
-        self.ln(1)
+        self.set_font("Arial", "B", 10)
+        self.set_text_color(11, 31, 58)
+        self.cell(0, 8, f"{DAMAC_TITLE} | {DAMAC_SUB1} | {DAMAC_SUB2}", ln=True, align="C")
+        self.ln(2)
 
     def footer(self):
-        self.set_y(-12)
-        self.set_font("Arial", "", 9)
-        self.cell(0, 8, f"Page {self.page_no()}", align="C")
+        self.set_y(-15)
+        self.set_font("Arial", "I", 8)
+        self.set_text_color(128, 128, 128)
+        self.cell(0, 10, f"Page {self.page_no()}", align="C")
 
 
 def pdf_evaluation(record: dict) -> bytes:
     pdf = PDFReport()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=12)
-
+    pdf.set_auto_page_break(auto=False, margin=12)
     pdf.set_font("Arial", "B", 14)
-    pdf.cell(0, 10, "ATA Evaluation Report", ln=True)
-
-    pdf.set_font("Arial", "", 11)
-    meta = [
-        f"Evaluation ID: {record['evaluation_id']}",
-        f"QA Name: {record['qa_name']}",
-        f"Auditor: {record['auditor']}",
-        f"Evaluation Date: {record['evaluation_date']}",
-        f"Audit Date: {record['audit_date']}",
-        f"Call ID: {record['call_id']}",
-        f"Call Duration: {record['call_duration']}",
-        f"Call Disposition: {record['call_disposition']}",
-        f"Overall Score: {record['overall_score']}%",
-        f"Passed: {record['passed']} | Failed: {record['failed']}",
+    pdf.cell(0, 12, "ATA Evaluation Report", ln=True, align="L")
+    pdf.ln(2)
+    pdf.set_font("Arial", "B", 9)
+    pdf.set_fill_color(241, 245, 249)
+    data = [
+        ["Evaluation ID", record["evaluation_id"], "Evaluation Date", format_date(record["evaluation_date"])],
+        ["QA Name", record["qa_name"], "Auditor Name", record["auditor"]],
+        ["Audit Date", format_date(record["audit_date"]), "Call ID", record["call_id"]],
+        ["Call Duration", record["call_duration"], "Call Disposition", record["call_disposition"]],
     ]
-    for m in meta:
-        pdf.cell(0, 7, m, ln=True)
 
-    pdf.ln(3)
-    col_w = [75, 20, 95]
+    def line_count(text: str, width: float) -> int:
+        words = str(text).split()
+        if not words:
+            return 1
+        lines = 1
+        line = ""
+        for word in words:
+            test = f"{line} {word}".strip()
+            if pdf.get_string_width(test) <= width:
+                line = test
+            else:
+                lines += 1
+                line = word
+        return lines
 
-    pdf.set_font("Arial", "B", 10)
-    pdf.cell(col_w[0], 8, "Parameter", border=1)
-    pdf.cell(col_w[1], 8, "Result", border=1, align="C")
-    pdf.cell(col_w[2], 8, "Comment", border=1)
-    pdf.ln()
+    col_widths = [42, 42, 42, 64]
+    def truncate_text(text: str, width: float) -> str:
+        text = str(text)
+        if pdf.get_string_width(text) <= width:
+            return text
+        while text and pdf.get_string_width(f"{text}...") > width:
+            text = text[:-1]
+        return f"{text}..." if text else ""
 
-    pdf.set_font("Arial", "", 10)
-    for _, r in record["details"].iterrows():
-        param = str(r["Parameter"])
-        res = str(r["Result"])
-        comment = str(r["Comment"]).strip() if str(r["Comment"]).strip() else "-"
-
+    row_height = 10
+    for row in data:
         x = pdf.get_x()
         y = pdf.get_y()
+        pdf.set_font("Arial", "B", 9)
+        pdf.cell(col_widths[0], row_height, truncate_text(row[0], col_widths[0]), border=1, fill=True)
+        pdf.set_font("Arial", "", 9)
+        pdf.cell(col_widths[1], row_height, truncate_text(row[1], col_widths[1]), border=1)
+        pdf.set_font("Arial", "B", 9)
+        pdf.cell(col_widths[2], row_height, truncate_text(row[2], col_widths[2]), border=1, fill=True)
+        pdf.set_font("Arial", "", 9)
+        pdf.cell(col_widths[3], row_height, truncate_text(row[3], col_widths[3]), border=1)
+        pdf.ln(row_height)
+    pdf.ln(4)
+    pdf.set_font("Arial", "B", 11)
+    pdf.cell(
+        0,
+        10,
+        f"Overall Score: {record['overall_score']:.2f}%",
+        ln=True,
+        align="C",
+        border=1,
+        fill=True,
+    )
+    pdf.ln(5)
 
-        pdf.multi_cell(col_w[0], 6, param, border=1)
-        pdf.set_xy(x + col_w[0], y)
-        pdf.multi_cell(col_w[1], 6, res, border=1, align="C")
-        pdf.set_xy(x + col_w[0] + col_w[1], y)
-        pdf.multi_cell(col_w[2], 6, comment, border=1)
+    def draw_section(title, df):
+        pdf.set_font("Arial", "B", 10)
+        pdf.set_text_color(11, 31, 58)
+        pdf.cell(0, 8, title, ln=True)
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("Arial", "B", 8)
+        pdf.set_fill_color(11, 31, 58)
+        pdf.set_text_color(255, 255, 255)
+        param_w, result_w, comment_w = 90, 20, 80
+        pdf.cell(param_w, 8, " Parameter", border=1, fill=True)
+        pdf.cell(result_w, 8, " Result", border=1, fill=True, align="C")
+        pdf.cell(comment_w, 8, " Comment", border=1, fill=True)
+        pdf.ln()
+        pdf.set_font("Arial", "", 7)
+        pdf.set_text_color(0, 0, 0)
+        def truncate_section(text: str, width: float) -> str:
+            text = str(text)
+            if pdf.get_string_width(text) <= width:
+                return text
+            while text and pdf.get_string_width(f"{text}...") > width:
+                text = text[:-1]
+            return f"{text}..." if text else ""
+        def wrap_lines(text: str, width: float) -> list[str]:
+            words = str(text).split()
+            if not words:
+                return [""]
+            lines = []
+            line = ""
+            for word in words:
+                test = f"{line} {word}".strip()
+                if pdf.get_string_width(test) <= width:
+                    line = test
+                else:
+                    lines.append(line)
+                    line = word
+            if line:
+                lines.append(line)
+            return lines
+        def ensure_space(height: float) -> None:
+            if pdf.get_y() + height > (pdf.h - 12):
+                pdf.add_page()
+                pdf.set_font("Arial", "B", 10)
+                pdf.set_text_color(11, 31, 58)
+                pdf.cell(0, 8, title, ln=True)
+                pdf.set_text_color(0, 0, 0)
+                pdf.set_font("Arial", "B", 8)
+                pdf.set_fill_color(11, 31, 58)
+                pdf.set_text_color(255, 255, 255)
+                pdf.cell(param_w, 8, " Parameter", border=1, fill=True)
+                pdf.cell(result_w, 8, " Result", border=1, fill=True, align="C")
+                pdf.cell(comment_w, 8, " Comment", border=1, fill=True)
+                pdf.ln()
+                pdf.set_font("Arial", "", 7)
+                pdf.set_text_color(0, 0, 0)
 
-        pdf.set_y(max(pdf.get_y(), y + 6))
+        for _, r in df.iterrows():
+            param, res, comm = str(r["Parameter"]), str(r["Result"]), str(r["Comment"])
+            if comm.lower() == "nan":
+                comm = ""
+            comment_lines = wrap_lines(comm, comment_w - 2) if comm.strip() else [""]
+            if len(comment_lines) > 2:
+                comment_lines = comment_lines[:2]
+                comment_lines[-1] = f"{comment_lines[-1]}..."
+            row_height = max(6, 4 * len(comment_lines))
+            line_height = 4
+            ensure_space(row_height + 2)
+            start_x, start_y = pdf.get_x(), pdf.get_y()
 
-    out = io.BytesIO()
-    out.write(pdf.output(dest="S").encode("latin-1"))
-    out.seek(0)
-    return out.read()
+            pdf.rect(start_x, start_y, param_w, row_height)
+            pdf.rect(start_x + param_w, start_y, result_w, row_height)
+            pdf.rect(start_x + param_w + result_w, start_y, comment_w, row_height)
+
+            y_offset = (row_height - line_height) / 2
+            pdf.set_xy(start_x + 1, start_y + y_offset)
+            pdf.cell(param_w - 2, line_height, truncate_section(param, param_w - 2), border=0)
+
+            pdf.set_xy(start_x + param_w, start_y + y_offset)
+            if res == "Pass":
+                pdf.set_text_color(31, 143, 74)
+            elif res == "Fail":
+                pdf.set_text_color(217, 48, 37)
+            else:
+                pdf.set_text_color(0, 0, 0)
+            pdf.cell(result_w, line_height, truncate_section(res, result_w - 2), border=0, align="C")
+            pdf.set_text_color(0, 0, 0)
+
+            pdf.set_xy(start_x + param_w + result_w + 1, start_y + 1)
+            pdf.multi_cell(comment_w - 2, line_height, "\n".join(comment_lines), border=0)
+
+            pdf.set_xy(start_x, start_y + row_height)
+        pdf.ln(5)
+
+    det = record["details"]
+    draw_section("Accuracy of Scoring", det[det["Group"] == "ACCURACY_SUB"])
+    draw_section("Evaluation Quality", det[det["Group"] == "EVAL_QUALITY"])
+    pdf.set_font("Arial", "B", 10)
+    pdf.cell(0, 8, f"Reaudit Status: {record['reaudit']}", ln=True)
+    return pdf.output(dest="S").encode("latin-1")
 
 
-# -------------------- DASHBOARD: FIGS + EXPORTS --------------------
-def build_dashboard_figs():
-    if not os.path.exists(EXPORT_XLSX):
-        return None, None, pd.DataFrame(), pd.DataFrame()
-
-    summary = safe_read_excel(EXPORT_XLSX, "Summary")
-    details = safe_read_excel(EXPORT_XLSX, "Details")
-
+# -------------------- DASHBOARD LOGIC --------------------
+def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFrame | None = None):
+    if summary is None or details is None:
+        if not os.path.exists(EXPORT_XLSX):
+            return (None,) * 10 + (pd.DataFrame(), pd.DataFrame())
+        summary = safe_read_excel(EXPORT_XLSX, "Summary")
+        details = safe_read_excel(EXPORT_XLSX, "Details")
     if summary.empty or details.empty:
-        return None, None, summary, details
-
+        return (None,) * 10 + (summary, details)
+    for col in ["Failed Points", "Total Points", "Overall Score %"]:
+        if col in summary.columns:
+            summary[col] = pd.to_numeric(summary[col], errors="coerce").fillna(0)
     summary["Evaluation Date"] = pd.to_datetime(summary.get("Evaluation Date"), errors="coerce")
-    details["Evaluation Date"] = pd.to_datetime(details.get("Evaluation Date"), errors="coerce")
     summary["Month"] = summary["Evaluation Date"].dt.to_period("M").astype(str)
-    details["Month"] = details["Evaluation Date"].dt.to_period("M").astype(str)
+    summary["Failure Rate"] = summary.apply(
+        lambda r: (r["Failed Points"] / r["Total Points"]) if r["Total Points"] else 0,
+        axis=1,
+    )
 
-    summary["Total"] = pd.to_numeric(summary.get("Passed"), errors="coerce").fillna(0) + pd.to_numeric(
-        summary.get("Failed"), errors="coerce"
-    ).fillna(0)
-    summary["Failed"] = pd.to_numeric(summary.get("Failed"), errors="coerce").fillna(0)
-    summary["Failure Rate"] = summary.apply(lambda r: (r["Failed"] / r["Total"]) if r["Total"] else 0, axis=1)
+    def add_bar_labels(ax):
+        heights = [patch.get_height() for patch in ax.patches]
+        if heights:
+            ax.set_ylim(0, max(heights) * 1.2)
+        for patch in ax.patches:
+            value = patch.get_height()
+            ax.annotate(
+                f"{value:.1f}" if isinstance(value, float) else f"{value}",
+                (patch.get_x() + patch.get_width() / 2, value),
+                ha="center",
+                va="bottom",
+                xytext=(0, 6),
+                textcoords="offset points",
+                fontsize=9,
+                color="#0b1f3a",
+            )
+
+    # 1. Trend Chart (Failure Rate)
     trend = summary.groupby("Month")["Failure Rate"].mean().sort_index()
+    fig_trend, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(trend.index, trend.values * 100, marker="o", color="#1e3a8a", linewidth=2, markersize=6)
+    ax.fill_between(trend.index, trend.values * 100, color="#1e3a8a", alpha=0.1)
+    ax.set_title("Failure Rate Trend (%)", fontweight="bold", fontsize=11)
+    ax.grid(True, alpha=0.2)
+    for x, y in zip(trend.index, trend.values * 100):
+        ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 8), ha="center")
+    plt.tight_layout()
 
-    fig_trend = plt.figure(figsize=(9, 3.6))
-    ax = fig_trend.add_subplot(111)
-    ax.plot(trend.index, trend.values * 100)
-    ax.set_title("Failure Trend Over Time")
-    ax.set_xlabel("Month")
-    ax.set_ylabel("Avg Failure Rate (%)")
-    ax.grid(True)
-    for i, v in enumerate(trend.values):
-        ax.text(i, v * 100 + 0.6, f"{v*100:.1f}%", ha="center", fontsize=9)
-    fig_trend.tight_layout()
-
-    fail_rows = details[details["Result"] == "Fail"].copy()
+    # 2. Heatmap
+    fail_rows = details[details.get("Result", "") == "Fail"].copy()
     heat = pd.DataFrame()
     if not fail_rows.empty:
+        fail_rows["Date Label"] = pd.to_datetime(
+            fail_rows.get("Evaluation Date"), errors="coerce"
+        ).dt.strftime("%d-%b")
         heat = pd.pivot_table(
             fail_rows,
             index="Parameter",
-            columns="Month",
+            columns="Date Label",
             values="Result",
             aggfunc="count",
             fill_value=0,
         )
-
-    fig_heat = plt.figure(figsize=(12, 4.2))
-    axh = fig_heat.add_subplot(111)
+    fig_heat, axh = plt.subplots(figsize=(6, 4))
     if heat.empty:
-        axh.text(0.5, 0.5, "No failures to display", ha="center", va="center", fontsize=12)
+        axh.text(0.5, 0.5, "No failures recorded", ha="center", va="center")
         axh.axis("off")
     else:
-        im = axh.imshow(heat.values, aspect="auto")
-        axh.set_title("Failure Heatmap by Parameter")
+        im = axh.imshow(heat.values, cmap="YlOrRd", aspect="auto")
         axh.set_xticks(range(len(heat.columns)))
-        axh.set_xticklabels(heat.columns, rotation=0)
+        axh.set_xticklabels(heat.columns)
         axh.set_yticks(range(len(heat.index)))
-        axh.set_yticklabels(heat.index)
-        for i in range(heat.shape[0]):
-            for j in range(heat.shape[1]):
-                axh.text(j, i, str(int(heat.iloc[i, j])), ha="center", va="center", fontsize=8)
-        fig_heat.colorbar(im, ax=axh, fraction=0.02, pad=0.02)
-        fig_heat.tight_layout()
+        axh.set_yticklabels(heat.index, fontsize=8)
+        for i in range(len(heat.index)):
+            for j in range(len(heat.columns)):
+                axh.text(
+                    j,
+                    i,
+                    str(int(heat.iloc[i, j])),
+                    ha="center",
+                    va="center",
+                    color="black",
+                    fontsize=8,
+                )
+        axh.set_title("Failure Distribution by Parameter", fontweight="bold", fontsize=11)
+        plt.colorbar(im, ax=axh)
+    plt.tight_layout()
 
-    return fig_heat, fig_trend, summary, details
+    # 3. Pass vs Fail Pie Chart
+    pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
+    fail_points = summary["Failed Points"].sum() if "Failed Points" in summary.columns else 0
+    fig_pie, axp = plt.subplots(figsize=(6, 4))
+    axp.pie(
+        [pass_points, fail_points],
+        labels=["Pass", "Fail"],
+        autopct="%1.1f%%",
+        colors=["#10b981", "#ef4444"],
+        startangle=90,
+        textprops={"fontsize": 10},
+    )
+    axp.set_title("Pass vs Fail Points", fontweight="bold", fontsize=11)
+    axp.axis("equal")
+    plt.tight_layout()
+
+    # 4. QA Average Scores
+    fig_qa, axq = plt.subplots(figsize=(6, 4))
+    qa_scores = summary.groupby("QA Name")["Overall Score %"].mean().sort_values(ascending=False)
+    axq.bar(qa_scores.index, qa_scores.values, color="#2563eb")
+    axq.set_title("QA Average Score (%)", fontweight="bold", fontsize=11)
+    axq.set_ylabel("Score %")
+    axq.tick_params(axis="x", rotation=20)
+    add_bar_labels(axq)
+    plt.tight_layout()
+
+    # 5. Score per Date
+    fig_score_date, axsd = plt.subplots(figsize=(6, 4))
+    score_by_date = summary.groupby(summary["Evaluation Date"].dt.date)["Overall Score %"].mean()
+    score_date_labels = [pd.to_datetime(d).strftime("%d-%b") for d in score_by_date.index]
+    axsd.bar(score_date_labels, score_by_date.values, color="#0ea5e9")
+    axsd.set_title("Average Score by Date (%)", fontweight="bold", fontsize=11)
+    axsd.tick_params(axis="x", rotation=30)
+    add_bar_labels(axsd)
+    plt.tight_layout()
+
+    # 6. Score per Month
+    fig_score_month, axsm = plt.subplots(figsize=(6, 4))
+    score_by_month = summary.groupby("Month")["Overall Score %"].mean().sort_index()
+    score_month_labels = [
+        pd.Period(m).to_timestamp().strftime("%b-%y") for m in score_by_month.index
+    ]
+    axsm.bar(score_month_labels, score_by_month.values, color="#14b8a6")
+    axsm.set_title("Average Score by Month (%)", fontweight="bold", fontsize=11)
+    axsm.tick_params(axis="x", rotation=20)
+    add_bar_labels(axsm)
+    plt.tight_layout()
+
+    # 7. Audits per Date
+    fig_audit_date, axad = plt.subplots(figsize=(6, 4))
+    audits_by_date = summary.groupby(summary["Evaluation Date"].dt.date).size()
+    audit_date_labels = [pd.to_datetime(d).strftime("%d-%b") for d in audits_by_date.index]
+    axad.bar(audit_date_labels, audits_by_date.values, color="#f59e0b")
+    axad.set_title("Audits per Date", fontweight="bold", fontsize=11)
+    axad.tick_params(axis="x", rotation=30)
+    add_bar_labels(axad)
+    plt.tight_layout()
+
+    # 8. Audits per Month
+    fig_audit_month, axam = plt.subplots(figsize=(6, 4))
+    audits_by_month = summary.groupby("Month").size().sort_index()
+    audit_month_labels = [
+        pd.Period(m).to_timestamp().strftime("%b-%y") for m in audits_by_month.index
+    ]
+    axam.bar(audit_month_labels, audits_by_month.values, color="#f97316")
+    axam.set_title("Audits per Month", fontweight="bold", fontsize=11)
+    axam.tick_params(axis="x", rotation=20)
+    add_bar_labels(axam)
+    plt.tight_layout()
+
+    # 9. Most Failed Parameters
+    fig_failed, axf = plt.subplots(figsize=(6, 4))
+    failed_params = (
+        details[details["Result"] == "Fail"]["Parameter"]
+        .value_counts()
+        .head(10)
+        .sort_values(ascending=True)
+    )
+    if failed_params.empty:
+        axf.text(0.5, 0.5, "No failures recorded", ha="center", va="center")
+        axf.axis("off")
+    else:
+        axf.barh(failed_params.index, failed_params.values, color="#ef4444")
+        axf.set_title("Most Failed Parameters (Top 10)", fontweight="bold", fontsize=11)
+        for i, value in enumerate(failed_params.values):
+            axf.text(value + 0.1, i, f"{value}", va="center", fontsize=8)
+    plt.tight_layout()
+
+    # 10. Audits per Disposition
+    fig_disp, axd = plt.subplots(figsize=(6, 4))
+    disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts()
+    axd.pie(
+        disp_counts.values,
+        labels=disp_counts.index,
+        autopct="%1.1f%%",
+        startangle=90,
+        colors=plt.cm.Pastel1.colors,
+        labeldistance=1.05,
+        pctdistance=0.8,
+        textprops={"fontsize": 9},
+    )
+    axd.set_title("Audits per Disposition", fontweight="bold", fontsize=11)
+    axd.axis("equal")
+    plt.tight_layout()
+
+
+    return (
+        fig_heat,
+        fig_trend,
+        fig_pie,
+        fig_qa,
+        fig_score_date,
+        fig_score_month,
+        fig_audit_date,
+        fig_audit_month,
+        fig_failed,
+        fig_disp,
+        summary,
+        details,
+    )
 
 
 def fig_to_png_bytes(fig) -> bytes:
     buf = io.BytesIO()
-    fig.savefig(buf, format="png", dpi=180, bbox_inches="tight")
+    fig.savefig(buf, format="png", dpi=150)
     buf.seek(0)
     return buf.read()
 
 
 def dashboard_pdf(figures, title="ATA Dashboard") -> bytes:
     pdf = PDFReport()
-    pdf.set_auto_page_break(auto=True, margin=12)
-
-    for idx, fig in enumerate(figures, start=1):
+    for idx, fig in enumerate(figures):
         img_bytes = fig_to_png_bytes(fig)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
             tmp.write(img_bytes)
             tmp_path = tmp.name
-
         pdf.add_page()
         pdf.set_font("Arial", "B", 14)
-        pdf.cell(0, 10, f"{title} | Chart {idx}", ln=True)
+        pdf.cell(0, 10, f"{title} - Chart {idx+1}", ln=True)
         pdf.image(tmp_path, x=10, y=30, w=190)
-
-        try:
-            os.remove(tmp_path)
-        except Exception:
-            pass
-
-    out = io.BytesIO()
-    out.write(pdf.output(dest="S").encode("latin-1"))
-    out.seek(0)
-    return out.read()
+        os.remove(tmp_path)
+    return pdf.output(dest="S").encode("latin-1")
 
 
 def dashboard_ppt(figures, title="ATA Dashboard") -> bytes:
     prs = Presentation()
-    blank = prs.slide_layouts[6]
-
-    slide = prs.slides.add_slide(blank)
-    tx = slide.shapes.add_textbox(Inches(0.6), Inches(0.6), Inches(12.1), Inches(1.2))
-    tf = tx.text_frame
-    tf.text = f"{DAMAC_TITLE} | {DAMAC_SUB1} | {DAMAC_SUB2}"
-    tf.paragraphs[0].font.size = Pt(24)
-    tf.paragraphs[0].font.bold = True
-    p2 = tf.add_paragraph()
-    p2.text = title
-    p2.font.size = Pt(18)
-
-    slide_w = prs.slide_width
-    slide_h = prs.slide_height
-    margin = Inches(0.4)
-
     for fig in figures:
+        slide = prs.slides.add_slide(prs.slide_layouts[6])
         img_bytes = fig_to_png_bytes(fig)
-        img = Image.open(io.BytesIO(img_bytes))
-        img_w, img_h = img.size
-
-        slide = prs.slides.add_slide(blank)
-
-        max_w = slide_w - 2 * margin
-        max_h = slide_h - 2 * margin
-
-        img_ratio = img_w / img_h
-        box_ratio = max_w / max_h
-
-        if img_ratio > box_ratio:
-            w = max_w
-            h = w / img_ratio
-        else:
-            h = max_h
-            w = h * img_ratio
-
-        left = (slide_w - w) / 2
-        top = (slide_h - h) / 2
-
-        slide.shapes.add_picture(io.BytesIO(img_bytes), left, top, width=w, height=h)
-
+        slide.shapes.add_picture(io.BytesIO(img_bytes), Inches(0.5), Inches(1), width=Inches(9))
     out = io.BytesIO()
     prs.save(out)
-    out.seek(0)
-    return out.read()
+    return out.getvalue()
 
 
-# -------------------- SESSION STATE --------------------
-if "edit_mode" not in st.session_state:
+# -------------------- MAIN APP --------------------
+def reset_evaluation_form() -> None:
+    for key in [
+        "prefill",
+        "qa_name",
+        "auditor",
+        "eval_date",
+        "audit_date",
+        "call_id",
+        "call_duration",
+        "call_disposition",
+        "reaudit",
+    ]:
+        if key in st.session_state:
+            st.session_state.pop(key, None)
     st.session_state.edit_mode = False
-if "edit_eval_id" not in st.session_state:
     st.session_state.edit_eval_id = ""
-if "prefill" not in st.session_state:
     st.session_state.prefill = {}
-if "goto_nav" not in st.session_state:
-    st.session_state.goto_nav = ""
-if "show_email_preview" not in st.session_state:
-    st.session_state.show_email_preview = False
-if "pending_delete" not in st.session_state:
-    st.session_state.pending_delete = ""
 
-# Navigation redirect fix: must run before sidebar radio is instantiated
+
+for key in [
+    "edit_mode",
+    "edit_eval_id",
+    "prefill",
+    "goto_nav",
+    "last_saved_id",
+    "reset_notice",
+    "reset_counter",
+]:
+    if key not in st.session_state:
+        if key == "prefill":
+            st.session_state[key] = {}
+        elif key == "reset_counter":
+            st.session_state[key] = 0
+        else:
+            st.session_state[key] = ""
+
 if st.session_state.get("goto_nav"):
     st.session_state["nav_radio"] = st.session_state["goto_nav"]
     st.session_state["goto_nav"] = ""
 
-# -------------------- SIDEBAR --------------------
 st.sidebar.markdown(
     f"""
-<div class="ata-hero">
-  <p class="t1">{DAMAC_TITLE}</p>
-  <p class="t2">{DAMAC_SUB1} | {DAMAC_SUB2}<br>{APP_NAME}</p>
-</div>
-""",
+    <div class="ata-hero">
+      <p class="t1">{DAMAC_TITLE}</p>
+      <p class="t2">{APP_NAME}</p>
+    </div>
+    <div class="logo-box"><img src="{LOGO_URL}"></div>
+    <div class="credit-box sidebar-credit"><div class="credit-line">Designed and built by Mohamed Seddiq</div></div>
+    """,
     unsafe_allow_html=True,
 )
-if os.path.exists(LOGO_FILE):
-    st.sidebar.image(LOGO_FILE, use_container_width=True)
+nav = st.sidebar.radio("Navigation", ["Home", "Evaluation", "View", "Dashboard"], key="nav_radio")
 
-nav_options = ["Home", "Evaluation", "View", "Dashboard"]
-nav = st.sidebar.radio("Navigation", nav_options, key="nav_radio")
-
-# -------------------- HOME --------------------
 if nav == "Home":
     summary = safe_read_excel(EXPORT_XLSX, "Summary")
-
-    st.markdown("## ATA Tool")
-    st.caption("DAMAC Properties | Quality Assurance | Telesales Division")
-
-    k1, k2, k3, k4 = st.columns(4)
-    if summary.empty:
-        k1.metric("Total evaluations", "0")
-        k2.metric("Average score", "0%")
-        k3.metric("Avg failure rate", "0%")
-        k4.metric("Last evaluation", "-")
-        last_eval_line = "No evaluations yet."
-    else:
-        summary["Overall Score %"] = pd.to_numeric(summary.get("Overall Score %"), errors="coerce").fillna(0)
-        summary["Passed"] = pd.to_numeric(summary.get("Passed"), errors="coerce").fillna(0)
-        summary["Failed"] = pd.to_numeric(summary.get("Failed"), errors="coerce").fillna(0)
-        summary["Total"] = summary["Passed"] + summary["Failed"]
-        summary["Failure Rate"] = summary.apply(lambda r: (r["Failed"] / r["Total"]) if r["Total"] else 0, axis=1)
-
-        last_dt = "-"
-        if "Last Updated" in summary.columns:
-            dt = pd.to_datetime(summary["Last Updated"], errors="coerce")
-            if dt.notna().any():
-                last_dt = dt.max().strftime("%Y-%m-%d %H:%M")
-
-        k1.metric("Total evaluations", f"{len(summary)}")
-        k2.metric("Average score", f"{summary['Overall Score %'].mean():.1f}%")
-        k3.metric("Avg failure rate", f"{summary['Failure Rate'].mean()*100:.1f}%")
-
-        # metric text doesn't wrap, so keep metric short and show wrapped text below
-        k4.metric("Last evaluation", "Available")
-        latest = summary.copy()
-        if "Last Updated" in latest.columns:
-            latest["_sort"] = pd.to_datetime(latest["Last Updated"], errors="coerce")
-            latest = latest.sort_values("_sort", ascending=False).drop(columns=["_sort"], errors="ignore")
-        row = latest.iloc[0].to_dict()
-        last_eval_line = (
-            f"Evaluation ID: {norm_id(row.get('Evaluation ID'))} | "
-            f"QA: {norm_id(row.get('QA Name'))} | "
-            f"Auditor: {norm_id(row.get('Auditor'))} | "
-            f"Audit Date: {norm_id(row.get('Audit Date'))} | "
-            f"Score: {row.get('Overall Score %', 0)}%"
-        )
-
     st.markdown(
         f"""
-<div class="ata-card">
-  <div style="font-weight:900;color:#0b1f3a;">Last evaluation</div>
-  <div class="ata-muted" style="margin-top:6px;">{last_eval_line}</div>
-  <div style="margin-top:10px;">
-    <span class="kpi-chip">Pass/Fail scoring</span>
-    <span class="kpi-chip">PDF export</span>
-    <span class="kpi-chip">Rendered Outlook draft (EML)</span>
-    <span class="kpi-chip">Excel log</span>
-    <span class="kpi-chip">Heatmap + trend</span>
-  </div>
-</div>
-""",
+        <div class="ata-hero left-align">
+          <p class="t1">Welcome to {APP_NAME}</p>
+          <p class="t2">Monitor, evaluate, and improve auditor performance with real-time insights.</p>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
-
-    st.divider()
-
-    a1, a2, a3, a4 = st.columns(4)
-    with a1:
-        if st.button("New Evaluation", use_container_width=True):
+    c1, c2, c3, c4 = st.columns(4)
+    if summary.empty:
+        for c, l in zip([c1, c2, c3, c4], ["Total Evals", "Avg Score", "Failure Rate", "Last Audit"]):
+            with c:
+                st.markdown(
+                    f"""
+                    <div class="stat-card">
+                      <div class="stat-val">0</div>
+                      <div class="stat-label">{l}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+    else:
+        for col in ["Failed Points", "Total Points", "Overall Score %"]:
+            summary[col] = pd.to_numeric(summary[col], errors="coerce").fillna(0)
+        stats = [
+            len(summary),
+            f"{summary['Overall Score %'].mean():.2f}%",
+            (
+                f"{(summary['Failed Points'].sum() / summary['Total Points'].sum() * 100 if summary['Total Points'].sum() else 0):.2f}%"
+            ),
+            format_date(summary.iloc[-1]["Evaluation Date"]),
+        ]
+        labels = ["Total Evaluations", "Average Score", "Avg Failure Rate", "Last Evaluation"]
+        for c, v, l in zip([c1, c2, c3, c4], stats, labels):
+            with c:
+                st.markdown(
+                    f"""
+                    <div class="stat-card">
+                      <div class="stat-val">{v}</div>
+                      <div class="stat-label">{l}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+    st.write("")
+    st.write("")
+    b1, b2, b3 = st.columns(3)
+    with b1:
+        if st.button("➕ New Evaluation", use_container_width=True):
             st.session_state.goto_nav = "Evaluation"
             st.rerun()
-    with a2:
-        if st.button("View", use_container_width=True):
+    with b2:
+        if st.button("🔍 View Records", use_container_width=True):
             st.session_state.goto_nav = "View"
             st.rerun()
-    with a3:
-        if st.button("Dashboard", use_container_width=True):
+    with b3:
+        if st.button("📊 Performance Dashboard", use_container_width=True):
             st.session_state.goto_nav = "Dashboard"
             st.rerun()
-    with a4:
-        if os.path.exists(EXPORT_XLSX):
-            with open(EXPORT_XLSX, "rb") as f:
-                st.download_button(
-                    "Download Excel Log",
-                    f,
-                    file_name=EXPORT_XLSX,
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
-                )
-        else:
-            st.button("Download Excel Log", disabled=True, use_container_width=True)
-
-    st.divider()
-
-    st.markdown("### Recent evaluations")
-    if summary.empty:
-        st.info("Submit an evaluation to populate the home overview.")
-    else:
-        view_df = summary.copy()
-        if "Last Updated" in view_df.columns:
-            view_df["_sort"] = pd.to_datetime(view_df["Last Updated"], errors="coerce")
-            view_df = view_df.sort_values("_sort", ascending=False).drop(columns=["_sort"], errors="ignore")
-        st.dataframe(view_df.head(10), width="stretch")
-
-# -------------------- EVALUATION --------------------
-elif nav == "Evaluation":
-    st.markdown("## New Evaluation" if not st.session_state.edit_mode else "## Edit Evaluation")
-    st.caption("Scoring model: Pass/Fail per parameter. Overall score equals pass rate.")
-
-    pre = st.session_state.prefill or {}
-    base_df = load_parameters_df()
-    if isinstance(pre.get("details_df"), pd.DataFrame) and not pre["details_df"].empty:
-        base_df = pre["details_df"][["Parameter", "Description", "Result", "Comment"]].copy()
-
-    with st.form("eval_form", clear_on_submit=True):
-        a, b, c = st.columns(3)
-        with a:
-            qa_name = st.text_input("QA name", value=pre.get("qa_name", ""))
-            auditor = st.text_input("Auditor name", value=pre.get("auditor", ""))
-        with b:
-            evaluation_date = st.date_input("Evaluation date", value=pre.get("evaluation_date", date.today()))
-            audit_date = st.date_input("Audit date", value=pre.get("audit_date", date.today()))
-        with c:
-            call_id = st.text_input("Call ID", value=pre.get("call_id", ""))
-            call_duration = st.text_input("Call duration", value=pre.get("call_duration", ""), placeholder="00:10:32")
-            call_disposition = st.text_input("Call disposition", value=pre.get("call_disposition", ""), placeholder="Resolved")
-
-        st.markdown("### Parameters")
-        edited = st.data_editor(
-            base_df,
-            width="stretch",
-            num_rows="fixed",
-            column_config={
-                "Parameter": st.column_config.TextColumn(disabled=True, width="medium"),
-                "Description": st.column_config.TextColumn(disabled=True, width="large"),
-                "Result": st.column_config.SelectboxColumn(options=["Pass", "Fail"], required=True, width="small"),
-                "Comment": st.column_config.TextColumn(width="large"),
-            },
+    if not summary.empty:
+        st.markdown("### Recent Audited Transactions")
+        recent = summary.sort_values("Evaluation Date", ascending=False).head(3).copy()
+        recent["Evaluation Date"] = recent["Evaluation Date"].apply(format_date)
+        recent["Audit Date"] = recent["Audit Date"].apply(format_date)
+        recent["Overall Score %"] = recent["Overall Score %"].map("{:.2f}%".format)
+        st.dataframe(
+            recent[
+                [
+                    "Evaluation ID",
+                    "Evaluation Date",
+                    "QA Name",
+                    "Auditor",
+                    "Audit Date",
+                    "Call ID",
+                    "Overall Score %",
+                ]
+            ],
+            use_container_width=True,
+            hide_index=True,
         )
 
-        submitted = st.form_submit_button("Save evaluation", use_container_width=True)
+elif nav == "Evaluation":
+    st.markdown(
+        '<div class="page-title"><h2>'
+        + ("Edit" if st.session_state.edit_mode else "New")
+        + " Evaluation</h2></div>",
+        unsafe_allow_html=True,
+    )
+    if st.session_state.get("reset_notice"):
+        st.success(st.session_state.reset_notice)
+        st.session_state.reset_notice = ""
+    pre, df_all = st.session_state.prefill or {}, load_parameters_df()
+    if st.session_state.edit_mode and isinstance(pre.get("details_df"), pd.DataFrame):
+        df_all = pre["details_df"].copy()
+    df_all = normalize_details_df(df_all)
+    df_all["Comment"] = df_all.get("Comment", "").fillna("")
+    with st.form("eval_form"):
+        c1, c2, c3, c4 = st.columns(4)
+        qa_name = c1.text_input("QA Name", value=pre.get("qa_name", ""), key="qa_name")
+        auditor = c1.text_input("Auditor", value=pre.get("auditor", ""), key="auditor")
+        eval_date = c2.date_input(
+            "Eval Date",
+            value=pre.get("evaluation_date", date.today()),
+            format="DD/MM/YYYY",
+            key="eval_date",
+        )
+        audit_date = c2.date_input(
+            "Audit Date",
+            value=pre.get("audit_date", date.today()),
+            format="DD/MM/YYYY",
+            key="audit_date",
+        )
+        call_id = c3.text_input("Call ID", value=pre.get("call_id", ""), key="call_id")
+        call_dur = c3.text_input("Duration", value=pre.get("call_duration", ""), key="call_duration")
+        call_disp = c4.text_input("Disposition", value=pre.get("call_disposition", ""), key="call_disposition")
+        reaudit = c4.selectbox(
+            "Reaudit",
+            ["No", "Yes"],
+            index=0 if pre.get("reaudit") != "Yes" else 1,
+            key="reaudit",
+        )
+        df_acc = df_all[df_all["Group"] == "ACCURACY_SUB"].copy()
+        df_qual = df_all[df_all["Group"] == "EVAL_QUALITY"].copy()
+        st.markdown("### Accuracy of Scoring")
+        editor_key = f"ed_{st.session_state.reset_counter}"
+        ed_acc = st.data_editor(
+            df_acc[["Parameter", "Result", "Comment"]],
+            use_container_width=True,
+            key=f"{editor_key}_acc",
+            column_config={
+                "Result": st.column_config.SelectboxColumn(
+                    options=["Pass", "Fail"],
+                    required=True,
+                    help="Select Pass or Fail.",
+                ),
+                "Comment": st.column_config.TextColumn(),
+            },
+        )
+        st.markdown("### Evaluation Quality")
+        ed_qual = st.data_editor(
+            df_qual[["Parameter", "Result", "Comment"]],
+            use_container_width=True,
+            key=f"{editor_key}_qual",
+            column_config={
+                "Result": st.column_config.SelectboxColumn(
+                    options=["Pass", "Fail"],
+                    required=True,
+                    help="Select Pass or Fail.",
+                ),
+                "Comment": st.column_config.TextColumn(),
+            },
+        )
+        save_clicked = st.form_submit_button("💾 Save Evaluation")
+        reset_clicked = st.form_submit_button("🔄 Reset Form")
+        cancel_clicked = st.form_submit_button("↩️ Cancel Edit") if st.session_state.edit_mode else False
 
-    if submitted:
-        eval_date_str = evaluation_date.strftime("%Y-%m-%d")
+        if reset_clicked:
+            reset_evaluation_form()
+            st.session_state.reset_counter += 1
+            st.session_state.qa_name = ""
+            st.session_state.auditor = ""
+            st.session_state.eval_date = date.today()
+            st.session_state.audit_date = date.today()
+            st.session_state.call_id = ""
+            st.session_state.call_duration = ""
+            st.session_state.call_disposition = ""
+            st.session_state.reaudit = "No"
+            st.session_state.reset_notice = "Form reset."
+            st.rerun()
 
-        # critical fix: in edit mode ALWAYS keep the same Evaluation ID (prevents duplication)
-        if st.session_state.edit_mode:
-            eval_id = norm_id(st.session_state.edit_eval_id)
-            if not eval_id:
-                eval_id = next_evaluation_id(eval_date_str)
-        else:
-            eval_id = next_evaluation_id(eval_date_str)
-
-        score = overall_score(edited)
-        passed = int((edited["Result"] == "Pass").sum())
-        failed = int((edited["Result"] == "Fail").sum())
-
-        record = {
-            "evaluation_id": eval_id,
-            "qa_name": (qa_name or "N/A").strip(),
-            "auditor": (auditor or "N/A").strip(),
-            "evaluation_date": eval_date_str,
-            "audit_date": audit_date.strftime("%Y-%m-%d"),
-            "call_id": (call_id or "N/A").strip(),
-            "call_duration": (call_duration or "N/A").strip(),
-            "call_disposition": (call_disposition or "N/A").strip(),
-            "overall_score": score,
-            "passed": passed,
-            "failed": failed,
-            "details": edited.copy(),
-        }
-
-        upsert_excel(record)
-
-        # exit edit mode after save
-        st.session_state.edit_mode = False
-        st.session_state.edit_eval_id = ""
-        st.session_state.prefill = {}
-        st.session_state.show_email_preview = False
-
-        st.success(f"Evaluation saved. Evaluation ID: {eval_id}")
-
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Overall score", f"{score}%")
-        m2.metric("Passed", passed)
-        m3.metric("Failed", failed)
-
-        st.divider()
-        html = email_html_inline(record)
-
-        colA, colB, colC = st.columns(3)
-        with colA:
-            st.download_button(
-                "Download evaluation PDF",
-                data=pdf_evaluation(record),
-                file_name=f"ATA_Evaluation_{record['evaluation_id']}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-        with colB:
-            st.download_button(
-                "Download rendered email (HTML)",
-                data=html.encode("utf-8"),
-                file_name=f"ATA_Email_{record['evaluation_id']}.html",
-                mime="text/html",
-                use_container_width=True,
-            )
-        with colC:
-            eml_bytes = build_eml(record, html, attach_pdf=True)
-            st.download_button(
-                "Open Outlook draft (EML)",
-                data=eml_bytes,
-                file_name=f"ATA_Evaluation_{record['evaluation_id']}.eml",
-                mime="message/rfc822",
-                use_container_width=True,
-            )
-
-        st.markdown("### Email preview")
-        st.markdown(html, unsafe_allow_html=True)
-        st.info("To open the Outlook draft: download the .eml then double-click it. Outlook will render the HTML and attach the PDF automatically.")
-
-        st.divider()
-        if st.button("Go to View", use_container_width=True):
+        if cancel_clicked:
+            reset_evaluation_form()
             st.session_state.goto_nav = "View"
             st.rerun()
 
-# -------------------- VIEW --------------------
-elif nav == "View":
-    st.markdown("## View")
-    st.caption("Filter by QA name and audit date, then open, edit, delete, or export.")
-
-    summary = safe_read_excel(EXPORT_XLSX, "Summary")
-    details = safe_read_excel(EXPORT_XLSX, "Details")
-
-    if summary.empty or "Evaluation ID" not in summary.columns:
-        st.info("No evaluations saved yet.")
-    else:
-        summary["Evaluation ID"] = summary["Evaluation ID"].apply(norm_id)
-        summary["QA Name"] = summary.get("QA Name", "").apply(norm_id)
-        summary["Auditor"] = summary.get("Auditor", "").apply(norm_id)
-        summary["Call ID"] = summary.get("Call ID", "").apply(norm_id)
-
-        summary["Audit Date"] = pd.to_datetime(summary.get("Audit Date"), errors="coerce").dt.date
-        summary["Evaluation Date"] = pd.to_datetime(summary.get("Evaluation Date"), errors="coerce").dt.date
-
-        qa_list = sorted([x for x in summary["QA Name"].dropna().unique().tolist() if x])
-        audit_dates = sorted([x for x in summary["Audit Date"].dropna().unique().tolist()])
-
-        f1, f2, f3 = st.columns([1, 1, 2])
-        with f1:
-            qa_filter = st.selectbox("QA name", ["All"] + qa_list)
-        with f2:
-            audit_filter = st.selectbox("Audit date", ["All"] + audit_dates)
-        with f3:
-            search = st.text_input("Search (Auditor / Call ID / Evaluation ID)")
-
-        filtered = summary.copy()
-        if qa_filter != "All":
-            filtered = filtered[filtered["QA Name"] == qa_filter]
-        if audit_filter != "All":
-            filtered = filtered[filtered["Audit Date"] == audit_filter]
-        if search.strip():
-            s = search.strip().lower()
-            filtered = filtered[
-                filtered["Auditor"].astype(str).str.lower().str.contains(s)
-                | filtered["Call ID"].astype(str).str.lower().str.contains(s)
-                | filtered["Evaluation ID"].astype(str).str.lower().str.contains(s)
-            ]
-
-        if filtered.empty:
-            st.warning("No matching evaluations found.")
-        else:
-            if "Last Updated" in filtered.columns:
-                filtered["_sort"] = pd.to_datetime(filtered["Last Updated"], errors="coerce")
-                filtered = filtered.sort_values("_sort", ascending=False).drop(columns=["_sort"], errors="ignore")
-
-            filtered = filtered.copy()
-            filtered["Label"] = filtered.apply(
-                lambda r: f"{r['Audit Date']} | {r['QA Name']} | {r['Auditor']} | Call {r['Call ID']} | Score {r['Overall Score %']}% | {r['Evaluation ID']}",
-                axis=1,
+        if save_clicked:
+            if "Parameter" not in ed_acc.columns or "Parameter" not in ed_qual.columns:
+                st.error("Unable to save. Please reset the form and try again.")
+                st.stop()
+            eval_id = (
+                st.session_state.edit_eval_id
+                if st.session_state.edit_mode
+                else next_evaluation_id(eval_date.strftime("%Y-%m-%d"))
             )
-
-            st.dataframe(filtered.drop(columns=["Label"], errors="ignore"), width="stretch")
-
-            sel = st.selectbox("Select evaluation", filtered["Label"].tolist())
-            row = filtered[filtered["Label"] == sel].iloc[0].to_dict()
-            eval_id = norm_id(row.get("Evaluation ID"))
-
-            det = pd.DataFrame()
-            if not details.empty and "Evaluation ID" in details.columns:
-                details["Evaluation ID"] = details["Evaluation ID"].apply(norm_id)
-                det = details[details["Evaluation ID"] == eval_id].copy()
-                if not det.empty:
-                    det = det[["Parameter", "Description", "Result", "Comment"]].copy()
-
+            acc_full, qual_full = df_acc.copy(), df_qual.copy()
+            acc_full["Result"], acc_full["Comment"] = ed_acc["Result"].values, ed_acc["Comment"].values
+            qual_full["Result"], qual_full["Comment"] = (
+                ed_qual["Result"].values,
+                ed_qual["Comment"].values,
+            )
+            details_all = pd.concat([acc_full, qual_full], ignore_index=True)
+            metrics = compute_weighted_score(details_all)
             record = {
                 "evaluation_id": eval_id,
-                "qa_name": norm_id(row.get("QA Name")) or "N/A",
-                "auditor": norm_id(row.get("Auditor")) or "N/A",
-                "evaluation_date": str(row.get("Evaluation Date", "")),
-                "audit_date": str(row.get("Audit Date", "")),
-                "call_id": norm_id(row.get("Call ID")) or "N/A",
-                "call_duration": norm_id(row.get("Call Duration")) or "N/A",
-                "call_disposition": norm_id(row.get("Call Disposition")) or "N/A",
-                "overall_score": float(row.get("Overall Score %", 0) or 0),
-                "passed": int(row.get("Passed", 0) or 0),
-                "failed": int(row.get("Failed", 0) or 0),
-                "details": det if not det.empty else load_parameters_df(),
+                "qa_name": qa_name,
+                "auditor": auditor,
+                "evaluation_date": eval_date.strftime("%Y-%m-%d"),
+                "audit_date": audit_date.strftime("%Y-%m-%d"),
+                "reaudit": reaudit,
+                "call_id": call_id,
+                "call_duration": call_dur,
+                "call_disposition": call_disp,
+                "overall_score": metrics["score"],
+                "passed_points": metrics["passed_points"],
+                "failed_points": metrics["failed_points"],
+                "total_points": metrics["total_points"],
+                "details": details_all,
             }
+            upsert_excel(record)
+            reset_evaluation_form()
+            st.session_state.last_saved_id = eval_id
+            st.session_state.goto_nav = "View"
+            st.rerun()
 
-            c1, c2, c3 = st.columns(3)
-            c1.metric("Overall score", f"{record['overall_score']}%")
-            c2.metric("Passed", record["passed"])
-            c3.metric("Failed", record["failed"])
-
-            st.divider()
-            html = email_html_inline(record)
-
-            colA, colB, colC, colD, colE = st.columns(5)
-            with colA:
+elif nav == "View":
+    st.markdown(
+        '<div class="page-title"><h2>Audit Records Explorer</h2></div>',
+        unsafe_allow_html=True,
+    )
+    summary = safe_read_excel(EXPORT_XLSX, "Summary")
+    details = safe_read_excel(EXPORT_XLSX, "Details")
+    if summary.empty:
+        st.info("No records found.")
+    else:
+        if st.session_state.get("last_saved_id"):
+            st.success(f"Saved Evaluation ID: {st.session_state.last_saved_id}")
+            st.session_state.last_saved_id = ""
+        summary["QA Name"] = summary["QA Name"].fillna("N/A")
+        summary["Audit Date"] = summary["Audit Date"].fillna("N/A")
+        qas = sorted(summary["QA Name"].unique().tolist())
+        dates = sorted([str(d) for d in summary["Audit Date"].unique().tolist()])
+        f1, f2, f3 = st.columns(3)
+        qa_f = f1.selectbox("Filter by QA", ["All"] + qas)
+        dt_f = f2.selectbox("Filter by Date", ["All"] + dates)
+        search = f3.text_input("Search (ID/Auditor/Call)")
+        filtered = summary.copy()
+        if qa_f != "All":
+            filtered = filtered[filtered["QA Name"] == qa_f]
+        if dt_f != "All":
+            filtered = filtered[filtered["Audit Date"].astype(str) == dt_f]
+        if search:
+            filtered = filtered[filtered.apply(lambda r: search.lower() in str(r).lower(), axis=1)]
+        if filtered.empty:
+            st.warning("No matches.")
+        else:
+            display_df = filtered.copy()
+            display_df.insert(0, "S.No", range(1, len(display_df) + 1))
+            display_df["Evaluation Date"] = display_df["Evaluation Date"].apply(format_date)
+            display_df["Audit Date"] = display_df["Audit Date"].apply(format_date)
+            display_df["Overall Score %"] = display_df["Overall Score %"].map("{:.2f}%".format)
+            st.dataframe(
+                display_df[
+                    [
+                        "S.No",
+                        "Evaluation ID",
+                        "Evaluation Date",
+                        "QA Name",
+                        "Auditor",
+                        "Audit Date",
+                        "Call ID",
+                        "Overall Score %",
+                    ]
+                ],
+                use_container_width=True,
+                hide_index=True,
+            )
+            record_options = display_df.apply(
+                lambda r: f"{r['S.No']} | {r['Evaluation ID']} | {r['QA Name']}", axis=1
+            ).tolist()
+            sel_label = st.selectbox("Select Record to View Details", record_options)
+            sel_id = sel_label.split(" | ")[1]
+            row = filtered[filtered["Evaluation ID"] == sel_id].iloc[0]
+            eval_date_display = format_date(row["Evaluation Date"])
+            audit_date_display = format_date(row["Audit Date"])
+            email_subject = f"ATA Evaluation | {sel_id} | {row['QA Name']} | {audit_date_display}"
+            st.markdown(
+                f"""
+                <div class="ata-card">
+                  <h3 style="margin-top:0; color:#0b1f3a;">Evaluation Details: {sel_id}</h3>
+                  <table class="styled-table">
+                    <tr><td><b>Evaluation ID:</b> {sel_id}</td><td><b>Evaluation Date:</b> {eval_date_display}</td></tr>
+                    <tr><td><b>QA Name:</b> {row['QA Name']}</td><td><b>Auditor Name:</b> {row['Auditor']}</td></tr>
+                    <tr><td><b>Audit Date:</b> {audit_date_display}</td><td><b>Call ID:</b> {row['Call ID']}</td></tr>
+                    <tr><td><b>Call Duration:</b> {row['Call Duration']}</td><td><b>Call Disposition:</b> {row['Call Disposition']}</td></tr>
+                    <tr><td><b>Overall Score:</b> <span style="font-size:18px;color:#0b1f3a;font-weight:bold;">{row['Overall Score %']:.2f}%</span></td><td><b>Reaudit:</b> {row['Reaudit']}</td></tr>
+                    <tr><td colspan="2"><b>Email Subject:</b> {email_subject}</td></tr>
+                  </table>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            c1, c2, c3, c4 = st.columns(4)
+            rec = {
+                "evaluation_id": sel_id,
+                "qa_name": row["QA Name"],
+                "auditor": row["Auditor"],
+                "evaluation_date": eval_date_display,
+                "audit_date": audit_date_display,
+                "reaudit": row["Reaudit"],
+                "call_id": row["Call ID"],
+                "call_duration": row["Call Duration"],
+                "call_disposition": row["Call Disposition"],
+                "overall_score": row["Overall Score %"],
+                "details": details[details["Evaluation ID"] == sel_id],
+            }
+            with c1:
                 st.download_button(
-                    "PDF",
-                    data=pdf_evaluation(record),
-                    file_name=f"ATA_Evaluation_{eval_id}.pdf",
-                    mime="application/pdf",
+                    "📄 Download PDF",
+                    pdf_evaluation(rec),
+                    f"ATA_{sel_id}.pdf",
+                    "application/pdf",
                     use_container_width=True,
                 )
-            with colB:
-                st.download_button(
-                    "HTML",
-                    data=html.encode("utf-8"),
-                    file_name=f"ATA_Email_{eval_id}.html",
-                    mime="text/html",
-                    use_container_width=True,
-                )
-            with colC:
-                eml_bytes = build_eml(record, html, attach_pdf=True)
-                st.download_button(
-                    "Outlook draft (EML)",
-                    data=eml_bytes,
-                    file_name=f"ATA_Evaluation_{eval_id}.eml",
-                    mime="message/rfc822",
-                    use_container_width=True,
-                )
-            with colD:
-                if st.button("Edit", use_container_width=True, key=f"edit_{eval_id}"):
-                    def _to_date(v):
-                        try:
-                            return pd.to_datetime(v).date()
-                        except Exception:
-                            return date.today()
-
+            with c2:
+                copy_to_clipboard_button("📋 Copy Email Template", email_html_inline(rec), f"copy_{sel_id}")
+            with c3:
+                if st.button("✏️ Edit Record", use_container_width=True):
                     st.session_state.edit_mode = True
-                    st.session_state.edit_eval_id = eval_id
+                    st.session_state.edit_eval_id = sel_id
                     st.session_state.prefill = {
-                        "qa_name": record["qa_name"],
-                        "auditor": record["auditor"],
-                        "evaluation_date": _to_date(row.get("Evaluation Date")),
-                        "audit_date": _to_date(row.get("Audit Date")),
-                        "call_id": record["call_id"],
-                        "call_duration": record["call_duration"],
-                        "call_disposition": record["call_disposition"],
-                        "details_df": record["details"],
+                        "qa_name": row["QA Name"],
+                        "auditor": row["Auditor"],
+                        "evaluation_date": pd.to_datetime(row["Evaluation Date"]).date(),
+                        "audit_date": pd.to_datetime(row["Audit Date"]).date(),
+                        "call_id": row["Call ID"],
+                        "call_duration": row["Call Duration"],
+                        "call_disposition": row["Call Disposition"],
+                        "reaudit": row["Reaudit"],
+                        "details_df": details[details["Evaluation ID"] == sel_id],
                     }
                     st.session_state.goto_nav = "Evaluation"
                     st.rerun()
-
-            with colE:
-                if st.button("Delete", use_container_width=True, key=f"del_{eval_id}"):
-                    st.session_state.pending_delete = eval_id
-                    st.rerun()
-
-            # delete confirmation (reliable, prevents accidental delete)
-            if st.session_state.pending_delete == eval_id:
-                st.warning(f"Confirm delete for Evaluation ID: {eval_id}")
-                cc1, cc2, cc3 = st.columns([1, 1, 3])
-                with cc1:
-                    confirm = st.checkbox("Confirm", key=f"confirm_{eval_id}")
-                with cc2:
-                    if st.button("Delete now", key=f"delete_now_{eval_id}", use_container_width=True, disabled=not confirm):
-                        ok = delete_evaluation(eval_id)
-                        st.session_state.pending_delete = ""
-                        if ok:
-                            st.success("Deleted successfully.")
-                        else:
-                            st.error("Delete failed. Evaluation ID was not found in the Excel log.")
+            with c4:
+                delete_label = st.selectbox(
+                    "Select Record to Delete",
+                    record_options,
+                    key="delete_record_select",
+                )
+                delete_id = delete_label.split(" | ")[1] if delete_label else ""
+                if st.button("🗑️ Delete Record", use_container_width=True):
+                    if delete_id and delete_evaluation(delete_id):
+                        st.success(f"Deleted {delete_id}")
                         st.rerun()
-                with cc3:
-                    if st.button("Cancel", key=f"cancel_del_{eval_id}", use_container_width=False):
-                        st.session_state.pending_delete = ""
-                        st.rerun()
+            export_buf = io.BytesIO()
+            with pd.ExcelWriter(export_buf, engine="openpyxl") as writer:
+                pd.DataFrame([row]).to_excel(writer, sheet_name="Summary", index=False)
+                details[details["Evaluation ID"] == sel_id].to_excel(
+                    writer, sheet_name="Details", index=False
+                )
+            export_buf.seek(0)
+            st.download_button(
+                "📥 Export Selected to Excel",
+                export_buf,
+                f"ATA_{sel_id}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+            st.markdown("### Parameter Breakdown")
+            det = details[details["Evaluation ID"] == sel_id]
+            if not det.empty:
+                for grp in ["ACCURACY_SUB", "EVAL_QUALITY"]:
+                    with st.expander(grp.replace("_", " ").title(), expanded=True):
+                        st.table(det[det["Group"] == grp][["Parameter", "Result", "Comment"]])
 
-            st.divider()
-            st.markdown("### Email preview")
-            st.markdown(html, unsafe_allow_html=True)
-            st.info("Outlook: download the .eml then double-click it. It opens a draft with rendered HTML and PDF attached.")
+elif nav == "Dashboard":
+    st.markdown(
+        '<div class="ata-hero left-align"><p class="t1">Performance Dashboard</p><p class="t2">Visualizing quality trends and failure distributions.</p></div>',
+        unsafe_allow_html=True,
+    )
+    summary_all = safe_read_excel(EXPORT_XLSX, "Summary")
+    details_all = safe_read_excel(EXPORT_XLSX, "Details")
+    if not summary_all.empty and "Evaluation Date" in summary_all.columns:
+        summary_all["Evaluation Date"] = pd.to_datetime(summary_all["Evaluation Date"], errors="coerce")
+    if not details_all.empty and "Evaluation Date" in details_all.columns:
+        details_all["Evaluation Date"] = pd.to_datetime(details_all["Evaluation Date"], errors="coerce")
 
-            st.markdown("### Parameters")
-            st.dataframe(record["details"], width="stretch")
-
-# -------------------- DASHBOARD --------------------
-else:
-    st.markdown("## Dashboard")
-    st.caption("Heatmap and failure trend extracted from the Excel log.")
-
-    fig_heat, fig_trend, summary, details = build_dashboard_figs()
-    if fig_heat is None and fig_trend is None:
-        st.info("No dashboard data yet. Submit evaluations first.")
+    if summary_all.empty or details_all.empty:
+        st.info("No data available for analysis.")
     else:
-        c1, c2 = st.columns(2)
-        with c1:
-            st.pyplot(fig_heat)
-        with c2:
-            st.pyplot(fig_trend)
+        filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
+        qa_options = ["All"] + sorted(summary_all["QA Name"].dropna().unique().tolist())
+        disp_options = ["All"] + sorted(summary_all["Call Disposition"].dropna().unique().tolist())
+        month_options = ["All"] + sorted(summary_all["Evaluation Date"].dt.to_period("M").astype(str).unique().tolist())
+        date_options = ["All"] + sorted(summary_all["Evaluation Date"].dt.strftime("%d-%b").dropna().unique().tolist())
 
-        st.divider()
-        figs = [f for f in [fig_heat, fig_trend] if f is not None]
+        qa_filter = filter_col1.selectbox("Filter by QA", qa_options)
+        disp_filter = filter_col2.selectbox("Filter by Disposition", disp_options)
+        month_filter = filter_col3.selectbox("Filter by Month", month_options)
+        date_filter = filter_col4.selectbox("Filter by Date", date_options)
 
-        d1, d2, d3 = st.columns(3)
-        with d1:
-            st.download_button(
-                "Download Dashboard PDF",
-                data=dashboard_pdf(figs, title="ATA Dashboard"),
-                file_name="ATA_Dashboard.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
+        summary = summary_all.copy()
+        if qa_filter != "All":
+            summary = summary[summary["QA Name"] == qa_filter]
+        if disp_filter != "All":
+            summary = summary[summary["Call Disposition"] == disp_filter]
+        if month_filter != "All":
+            summary = summary[summary["Evaluation Date"].dt.to_period("M").astype(str) == month_filter]
+        if date_filter != "All":
+            summary = summary[summary["Evaluation Date"].dt.strftime("%d-%b") == date_filter]
 
-        with d2:
-            st.download_button(
-                "Download Dashboard PPT",
-                data=dashboard_ppt(figs, title="ATA Dashboard"),
-                file_name="ATA_Dashboard.pptx",
-                mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                use_container_width=True,
-            )
+        details = details_all.copy()
+        if "Evaluation ID" in summary.columns:
+            details = details[details["Evaluation ID"].isin(summary["Evaluation ID"].unique())]
 
-        with d3:
-            if os.path.exists(EXPORT_XLSX):
-                with open(EXPORT_XLSX, "rb") as f:
+        if summary.empty or details.empty:
+            st.info("No data available for analysis.")
+        else:
+            (
+                fig_heat,
+                fig_trend,
+                fig_pie,
+                fig_qa,
+                fig_score_date,
+                fig_score_month,
+                fig_audit_date,
+                fig_audit_month,
+                fig_failed,
+                fig_disp,
+                _summary_unused,
+                _details_unused,
+            ) = build_dashboard_figs(summary, details)
+            if fig_heat:
+                row1 = st.columns(2)
+                with row1[0]:
+                    st.pyplot(fig_pie, use_container_width=True)
+                with row1[1]:
+                    st.pyplot(fig_disp, use_container_width=True)
+
+                row2 = st.columns(2)
+                with row2[0]:
+                    st.pyplot(fig_trend, use_container_width=True)
+                with row2[1]:
+                    st.pyplot(fig_qa, use_container_width=True)
+
+                row3 = st.columns(2)
+                with row3[0]:
+                    st.pyplot(fig_score_month, use_container_width=True)
+                with row3[1]:
+                    st.pyplot(fig_score_date, use_container_width=True)
+
+                row4 = st.columns(2)
+                with row4[0]:
+                    st.pyplot(fig_audit_month, use_container_width=True)
+                with row4[1]:
+                    st.pyplot(fig_audit_date, use_container_width=True)
+
+                row5 = st.columns(2)
+                with row5[0]:
+                    st.pyplot(fig_heat, use_container_width=True)
+                with row5[1]:
+                    st.pyplot(fig_failed, use_container_width=True)
+
+                st.divider()
+                d1, d2, d3 = st.columns(3)
+                figures = [
+                    fig_pie,
+                    fig_disp,
+                    fig_trend,
+                    fig_qa,
+                    fig_score_month,
+                    fig_score_date,
+                    fig_audit_month,
+                    fig_audit_date,
+                    fig_heat,
+                    fig_failed,
+                ]
+                with d1:
                     st.download_button(
-                        "Download Excel Log",
-                        f,
-                        file_name=EXPORT_XLSX,
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "📥 Download Dashboard PDF",
+                        dashboard_pdf(figures),
+                        "ATA_Dashboard.pdf",
+                        "application/pdf",
                         use_container_width=True,
                     )
-            else:
-                st.button("Download Excel Log", disabled=True, use_container_width=True)
+                with d2:
+                    st.download_button(
+                        "📥 Download Dashboard PPT",
+                        dashboard_ppt(figures),
+                        "ATA_Dashboard.pptx",
+                        use_container_width=True,
+                    )
+                with d3:
+                    if os.path.exists(EXPORT_XLSX):
+                        with open(EXPORT_XLSX, "rb") as f:
+                            st.download_button(
+                                "📥 Download Excel Log",
+                                f,
+                                EXPORT_XLSX,
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                use_container_width=True,
+                            )
