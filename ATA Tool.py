@@ -807,7 +807,8 @@ def pdf_evaluation(record: dict) -> bytes:
     draw_section("Evaluation Quality", det[det["Group"] == "EVAL_QUALITY"])
     pdf.set_font("Arial", "B", 10)
     pdf.cell(0, 8, f"Reaudit Status: {record['reaudit']}", ln=True)
-    return pdf.output(dest="S").encode("latin-1")
+    out = pdf.output(dest="S")
+    return bytes(out) if isinstance(out, (bytes, bytearray)) else out.encode("latin-1")
 
 
 # -------------------- DASHBOARD LOGIC --------------------
@@ -1038,7 +1039,8 @@ def dashboard_pdf(figures, title="ATA Dashboard") -> bytes:
         pdf.cell(0, 10, f"{title} - Chart {idx+1}", ln=True)
         pdf.image(tmp_path, x=10, y=30, w=190)
         os.remove(tmp_path)
-    return pdf.output(dest="S").encode("latin-1")
+    out = pdf.output(dest="S")
+    return bytes(out) if isinstance(out, (bytes, bytearray)) else out.encode("latin-1")
 
 
 def dashboard_ppt(figures, title="ATA Dashboard") -> bytes:
