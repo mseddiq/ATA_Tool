@@ -5,6 +5,7 @@ import sys
 import tempfile
 from datetime import date, datetime
 from pathlib import Path
+from urllib.parse import quote
 
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -39,6 +40,7 @@ DAMAC_SUB2 = "Telesales Division"
 APP_NAME = "ATA Audit the Auditor"
 
 LOGO_URL = "https://images.ctfassets.net/zoq5l15g49wj/2qCUAnuJ9WgJiGNxmTXkUa/0505928e3d7060e1bc0c3195d7def448/damac-gold.svg?fm=webp&w=200&h=202&fit=pad&q=60"
+LOGIN_LOGO_URL = "https://vectorseek.com/wp-content/uploads/2023/09/DAMAC-Properties-Logo-Vector.svg-.png"
 
 # -------------------- UI THEME --------------------
 st.markdown(
@@ -139,6 +141,16 @@ st.markdown(
     margin-top: 10px;
     margin-bottom: 12px;
 }
+
+.login-wrap {max-width: 460px; margin: 20px auto 10px auto; padding: 26px; border:1px solid #e2e8f0; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08);} 
+.login-wrap.light {background:#ffffff;} 
+.login-wrap.dark {background:#0b1f3a; border-color:#1e3a8a;} 
+.login-logo {display:flex; justify-content:center; margin-bottom:12px;} 
+.login-title {text-align:center; font-weight:800; margin-bottom:0;} 
+.login-wrap.light .login-title {color:#0b1f3a;} 
+.login-wrap.dark .login-title {color:#ffffff;} 
+.login-note {text-align:center; color:#64748b; font-size:12px; margin-top:8px;} 
+.login-extra {text-align:center; font-size:12px; margin-top:4px;} 
 </style>
 """,
     unsafe_allow_html=True,
@@ -1055,6 +1067,46 @@ def dashboard_ppt(figures, title="ATA Dashboard") -> bytes:
 
 
 # -------------------- MAIN APP --------------------
+LOGIN_USER = "Quality"
+LOGIN_PASSWORD = "Damac#2026#"
+
+
+def render_login() -> None:
+    dark_mode = st.toggle("Dark mode", value=st.session_state.get("login_dark_mode", False), key="login_dark_mode")
+    mode_class = "dark" if dark_mode else "light"
+    st.markdown(
+        f"""
+        <div class="login-wrap {mode_class}">
+            <div class="login-logo"><img src="{LOGIN_LOGO_URL}" width="170"></div>
+            <h3 class="login-title">DAMAC Login</h3>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    with st.form("login_form"):
+        username = st.text_input("User Name", placeholder="Enter username")
+        password = st.text_input("Password", type="password", placeholder="Enter password")
+        remember_me = st.checkbox("Remember me")
+        submitted = st.form_submit_button("Login", use_container_width=True)
+
+    body = f"User Name: {username or '(not provided)'}\nPassword: {password or '(not provided)'}"
+    forgot_mailto = "mailto:Mohamed.Seddiq@damacgroup.com?subject=" + quote("Credentials Request") + "&body=" + quote(body)
+
+    st.markdown(
+        f"<div class='login-note'>Forget Credentials: <a href='{forgot_mailto}'>click here</a></div>"
+        "<div class='login-extra'>This App was created for quality activity purposes.</div>",
+        unsafe_allow_html=True,
+    )
+    if submitted:
+        if username == LOGIN_USER and password == LOGIN_PASSWORD:
+            st.session_state.authenticated = True
+            st.session_state.remember_me = remember_me
+            st.success("Login successful")
+            st.rerun()
+        else:
+            st.error("Invalid credentials")
+
+
 def reset_evaluation_form() -> None:
     for key in [
         "prefill",
@@ -1082,14 +1134,23 @@ for key in [
     "last_saved_id",
     "reset_notice",
     "reset_counter",
+    "authenticated",
+    "remember_me",
+    "login_dark_mode",
 ]:
     if key not in st.session_state:
         if key == "prefill":
             st.session_state[key] = {}
         elif key == "reset_counter":
             st.session_state[key] = 0
+        elif key in ("authenticated", "remember_me", "login_dark_mode"):
+            st.session_state[key] = False
         else:
             st.session_state[key] = ""
+
+if not st.session_state.get("authenticated", False):
+    render_login()
+    st.stop()
 
 if st.session_state.get("goto_nav"):
     st.session_state["nav_radio"] = st.session_state["goto_nav"]
