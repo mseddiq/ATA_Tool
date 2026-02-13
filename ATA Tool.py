@@ -30,6 +30,62 @@ def get_data_dir() -> Path:
 DATA_DIR = get_data_dir()
 PARAMETERS_JSON = str(DATA_DIR / "parameters.json")
 EXPORT_XLSX = str(DATA_DIR / "ATA_Audit_Log.xlsx")
+SUMMARY_COLUMNS = [
+    "Evaluation ID",
+    "Evaluation Date",
+    "Audit Date",
+    "Reaudit",
+    "QA Name",
+    "Auditor",
+    "Call ID",
+    "Call Duration",
+    "Call Disposition",
+    "Overall Score %",
+    "Passed Points",
+    "Failed Points",
+    "Total Points",
+    "Last Updated",
+]
+DETAILS_COLUMNS = [
+    "Evaluation ID",
+    "Evaluation Date",
+    "Audit Date",
+    "Reaudit",
+    "QA Name",
+    "Auditor",
+    "Call ID",
+    "Overall Score %",
+    "Group",
+    "Parameter",
+    "Result",
+    "Comment",
+]
+
+
+def _norm_col_name(name: str) -> str:
+    return str(name).strip().lower().replace("_", " ")
+
+
+def _standardize_columns(df: pd.DataFrame, expected_columns: list[str]) -> pd.DataFrame:
+    if df is None:
+        df = pd.DataFrame()
+    source = df.copy()
+    rename_map = {_norm_col_name(col): col for col in source.columns}
+    output = pd.DataFrame()
+    for expected in expected_columns:
+        actual = rename_map.get(_norm_col_name(expected))
+        output[expected] = source[actual] if actual is not None else ""
+    return output
+
+
+def _rewrite_google_worksheet(ws, df: pd.DataFrame, expected_columns: list[str]) -> None:
+    out = _standardize_columns(df, expected_columns)
+    ws.clear()
+    ws.append_row(expected_columns)
+    if not out.empty:
+        ws.append_rows(out.astype(str).values.tolist())
+
+
 def connect_google_sheet():
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
     creds_dict = dict(st.secrets["gcp_service_account"])
@@ -48,14 +104,14 @@ def read_google_summary():
     sheet = connect_google_sheet()
     ws = sheet.worksheet("Summary")
     data = ws.get_all_records()
-    return pd.DataFrame(data)
+    return _standardize_columns(pd.DataFrame(data), SUMMARY_COLUMNS)
 
 
 def read_google_details():
     sheet = connect_google_sheet()
     ws = sheet.worksheet("Details")
     data = ws.get_all_records()
-    return pd.DataFrame(data)
+    return _standardize_columns(pd.DataFrame(data), DETAILS_COLUMNS)
 DAMAC_TITLE = "DAMAC Properties"
 DAMAC_SUB1 = "Quality Assurance"
 DAMAC_SUB2 = "Telesales Division"
@@ -287,18 +343,21 @@ def next_evaluation_id(evaluation_date_str: str) -> str:
     df = read_google_summary()
     yyyymmdd = evaluation_date_str.replace("-", "")
     prefix = f"ATA-{yyyymmdd}-"
-
-    if df.empty or "evaluation_id" not in df.columns:
+    if df.empty or "Evaluation ID" not in df.columns:
         return f"{prefix}0001"
-
-    existing = df["evaluation_id"].astype(str)
+    existing = df["Evaluation ID"].astype(str)
     existing = existing[existing.str.startswith(prefix)]
-
     if existing.empty:
         return f"{prefix}0001"
 
-    max_seq = max(int(x.split("-")[-1]) for x in existing)
-    return f"{prefix}{max_seq+1:04d}"
+    def _seq(x: str) -> int:
+        try:
+            return int(str(x).split("-")[-1])
+        except Exception:
+            return 0
+
+    max_seq = max(existing.apply(_seq).tolist() + [0])
+    return f"{prefix}{max_seq + 1:04d}"
 def write_formatted_report(
     record: dict,
     filename: str,
@@ -417,58 +476,20 @@ def write_formatted_report(
         ws.column_dimensions[ws.cell(row=label_row, column=idx).column_letter].width = 18
     wb.save(filename)
 def upsert_google_sheet(record: dict):
-    sheet = connect_google_sheet()
-    summary_ws = sheet.worksheet("Summary")
-    details_ws = sheet.worksheet("Details")
-    summary_ws.append_row([
-        record["evaluation_id"],
-        record["evaluation_date"],
-        record["audit_date"],
-        record["reaudit"],
-        record["qa_name"],
-        record["auditor"],
-        record["call_id"],
-        record["call_duration"],
-        record["call_disposition"],
-        record["overall_score"],
-        record["passed_points"],
-        record["failed_points"],
-        record["total_points"],
-        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-    ])
-    for _, row in record["details"].iterrows():
-        details_ws.append_row([
-            record["evaluation_id"],
-            record["evaluation_date"],
-            record["audit_date"],
-            record["reaudit"],
-            record["qa_name"],
-            record["auditor"],
-            record["call_id"],
-            record["overall_score"],
-            row["Group"],
-            row["Parameter"],
-            row["Result"],
-            row["Comment"],
-        ])
-def upsert_excel(record: dict) -> None:
     summary_existing = read_google_summary()
     details_existing = read_google_details()
     rid = norm_id(record["evaluation_id"])
-    if not summary_existing.empty and "Evaluation ID" in summary_existing.columns:
-        summary_existing["_rid"] = summary_existing["Evaluation ID"].apply(norm_id)
-        summary_existing = summary_existing[summary_existing["_rid"] != rid].drop(
-            columns=["_rid"], errors="ignore"
-        )
-    if not details_existing.empty and "Evaluation ID" in details_existing.columns:
-        details_existing["_rid"] = details_existing["Evaluation ID"].apply(norm_id)
-        details_existing = details_existing[details_existing["_rid"] != rid].drop(
-            columns=["_rid"], errors="ignore"
-        )
+
+    summary_existing["_rid"] = summary_existing["Evaluation ID"].apply(norm_id)
+    summary_existing = summary_existing[summary_existing["_rid"] != rid].drop(columns=["_rid"], errors="ignore")
+
+    details_existing["_rid"] = details_existing["Evaluation ID"].apply(norm_id)
+    details_existing = details_existing[details_existing["_rid"] != rid].drop(columns=["_rid"], errors="ignore")
+
     summary_row = pd.DataFrame(
         [
             {
-                "Evaluation ID": rid,
+                "Evaluation ID": record["evaluation_id"],
                 "Evaluation Date": record["evaluation_date"],
                 "Audit Date": record["audit_date"],
                 "Reaudit": record["reaudit"],
@@ -499,52 +520,39 @@ def upsert_excel(record: dict) -> None:
     details_df = details_df.drop(columns=list(details_map.keys()), errors="ignore")
     for i, col in enumerate(details_map):
         details_df.insert(i, col, details_map[col])
+
     out_summary = pd.concat([summary_existing, summary_row], ignore_index=True)
     out_details = pd.concat([details_existing, details_df], ignore_index=True)
-    with pd.ExcelWriter(EXPORT_XLSX, engine="openpyxl") as writer:
-        out_summary.to_excel(writer, sheet_name="Summary", index=False)
-        out_details.to_excel(writer, sheet_name="Details", index=False)
-    write_formatted_report(record, EXPORT_XLSX, out_summary, out_details)
-    if "Formatted Report" not in load_workbook(EXPORT_XLSX).sheetnames:
-        write_formatted_report(record, EXPORT_XLSX, out_summary, out_details)
+
+    sheet = connect_google_sheet()
+    _rewrite_google_worksheet(sheet.worksheet("Summary"), out_summary, SUMMARY_COLUMNS)
+    _rewrite_google_worksheet(sheet.worksheet("Details"), out_details, DETAILS_COLUMNS)
+
 def delete_evaluation(eval_id: str) -> bool:
     rid = norm_id(eval_id)
     summary_existing = read_google_summary()
     details_existing = read_google_details()
     if summary_existing.empty and details_existing.empty:
         return False
-    changed = False
-    if not summary_existing.empty and "Evaluation ID" in summary_existing.columns:
-        summary_existing["_rid"] = summary_existing["Evaluation ID"].apply(norm_id)
-        before = len(summary_existing)
-        summary_existing = summary_existing[summary_existing["_rid"] != rid].drop(
-            columns=["_rid"], errors="ignore"
-        )
-        changed = changed or (len(summary_existing) != before)
-    if not details_existing.empty and "Evaluation ID" in details_existing.columns:
-        details_existing["_rid"] = details_existing["Evaluation ID"].apply(norm_id)
-        before = len(details_existing)
-        details_existing = details_existing[details_existing["_rid"] != rid].drop(
-            columns=["_rid"], errors="ignore"
-        )
-        changed = changed or (len(details_existing) != before)
-    with pd.ExcelWriter(EXPORT_XLSX, engine="openpyxl") as writer:
-        summary_existing.to_excel(writer, sheet_name="Summary", index=False)
-        details_existing.to_excel(writer, sheet_name="Details", index=False)
-    if not summary_existing.empty and not details_existing.empty:
-        dummy_record = {
-            "evaluation_id": rid,
-            "evaluation_date": "",
-            "audit_date": "",
-            "reaudit": "",
-            "qa_name": "",
-            "auditor": "",
-            "call_id": "",
-            "overall_score": 0,
-            "details": details_existing,
-        }
-        write_formatted_report(dummy_record, EXPORT_XLSX, summary_existing, details_existing)
-    return changed
+
+    summary_existing["_rid"] = summary_existing["Evaluation ID"].apply(norm_id)
+    details_existing["_rid"] = details_existing["Evaluation ID"].apply(norm_id)
+
+    before_summary = len(summary_existing)
+    before_details = len(details_existing)
+
+    summary_existing = summary_existing[summary_existing["_rid"] != rid].drop(columns=["_rid"], errors="ignore")
+    details_existing = details_existing[details_existing["_rid"] != rid].drop(columns=["_rid"], errors="ignore")
+
+    changed = (len(summary_existing) != before_summary) or (len(details_existing) != before_details)
+    if not changed:
+        return False
+
+    sheet = connect_google_sheet()
+    _rewrite_google_worksheet(sheet.worksheet("Summary"), summary_existing, SUMMARY_COLUMNS)
+    _rewrite_google_worksheet(sheet.worksheet("Details"), details_existing, DETAILS_COLUMNS)
+    return True
+
 def compute_weighted_score(df: pd.DataFrame) -> dict:
     df = df.copy()
     df["Result"] = df["Result"].fillna("Pass")
@@ -810,8 +818,6 @@ def pdf_evaluation(record: dict) -> bytes:
 # -------------------- DASHBOARD LOGIC --------------------
 def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFrame | None = None):
     if summary is None or details is None:
-        if not os.path.exists(EXPORT_XLSX):
-            return (None,) * 10 + (pd.DataFrame(), pd.DataFrame())
         summary = read_google_summary()
         details = read_google_details()
     if summary.empty or details.empty:
@@ -1389,7 +1395,11 @@ elif nav == "View":
             ).tolist()
             sel_label = st.selectbox("Select Record to View Details", record_options)
             sel_id = sel_label.split(" | ")[1]
-            row = filtered[filtered["Evaluation ID"] == sel_id].iloc[0]
+            selected_rows = filtered[filtered["Evaluation ID"].apply(norm_id) == norm_id(sel_id)]
+            if selected_rows.empty:
+                st.error("Selected record was not found. Please refresh and try again.")
+                st.stop()
+            row = selected_rows.iloc[0]
             eval_date_display = format_date(row["Evaluation Date"])
             audit_date_display = format_date(row["Audit Date"])
             email_subject = f"ATA Evaluation | {sel_id} | {row['QA Name']} | {audit_date_display}"
@@ -1421,7 +1431,7 @@ elif nav == "View":
                 "call_duration": row["Call Duration"],
                 "call_disposition": row["Call Disposition"],
                 "overall_score": row["Overall Score %"],
-                "details": details[details["Evaluation ID"] == sel_id],
+                "details": details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)],
             }
             with c1:
                 st.download_button(
@@ -1446,7 +1456,7 @@ elif nav == "View":
                         "call_duration": row["Call Duration"],
                         "call_disposition": row["Call Disposition"],
                         "reaudit": row["Reaudit"],
-                        "details_df": details[details["Evaluation ID"] == sel_id],
+                        "details_df": details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)],
                     }
                     st.session_state.goto_nav = "Evaluation"
                     st.rerun()
@@ -1464,7 +1474,7 @@ elif nav == "View":
             export_buf = io.BytesIO()
             with pd.ExcelWriter(export_buf, engine="openpyxl") as writer:
                 pd.DataFrame([row]).to_excel(writer, sheet_name="Summary", index=False)
-                details[details["Evaluation ID"] == sel_id].to_excel(
+                details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)].to_excel(
                     writer, sheet_name="Details", index=False
                 )
             export_buf.seek(0)
@@ -1476,7 +1486,7 @@ elif nav == "View":
                 use_container_width=True,
             )
             st.markdown("### Parameter Breakdown")
-            det = details[details["Evaluation ID"] == sel_id]
+            det = details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)]
             if not det.empty:
                 for grp in ["ACCURACY_SUB", "EVAL_QUALITY"]:
                     with st.expander(grp.replace("_", " ").title(), expanded=True):
@@ -1589,14 +1599,15 @@ elif nav == "Dashboard":
                         use_container_width=True,
                     )
                 with d3:
-                    if os.path.exists(EXPORT_XLSX):
-                        with open(EXPORT_XLSX, "rb") as f:
-                            st.download_button(
-                                "📥 Download Excel Log",
-                                f,
-                                EXPORT_XLSX,
-                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                                use_container_width=True,
-                            )
-
-
+                    all_export_buf = io.BytesIO()
+                    with pd.ExcelWriter(all_export_buf, engine="openpyxl") as writer:
+                        summary_all.to_excel(writer, sheet_name="Summary", index=False)
+                        details_all.to_excel(writer, sheet_name="Details", index=False)
+                    all_export_buf.seek(0)
+                    st.download_button(
+                        "📥 Download Excel Log",
+                        all_export_buf,
+                        "ATA_Audit_Log.xlsx",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
