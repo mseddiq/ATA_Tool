@@ -57,6 +57,8 @@ DETAILS_COLUMNS = [
     "Overall Score %",
     "Group",
     "Parameter",
+    "Points",
+    "Description",
     "Result",
     "Comment",
 ]
@@ -83,7 +85,7 @@ def _rewrite_google_worksheet(ws, df: pd.DataFrame, expected_columns: list[str])
     ws.clear()
     ws.append_row(expected_columns)
     if not out.empty:
-        ws.append_rows(out.astype(str).values.tolist())
+        ws.append_rows(out.values.tolist())
 
 
 def connect_google_sheet():
@@ -100,6 +102,7 @@ def connect_google_sheet():
     return sheet
 
 
+@st.cache_data
 def read_google_summary():
     sheet = connect_google_sheet()
     ws = sheet.worksheet("Summary")
@@ -107,6 +110,7 @@ def read_google_summary():
     return _standardize_columns(pd.DataFrame(data), SUMMARY_COLUMNS)
 
 
+@st.cache_data
 def read_google_details():
     sheet = connect_google_sheet()
     ws = sheet.worksheet("Details")
@@ -516,6 +520,8 @@ def upsert_google_sheet(record: dict):
         "Auditor": record["auditor"],
         "Call ID": record["call_id"],
         "Overall Score %": record["overall_score"],
+        "Points": details_df.get("Points", 1),
+        "Description": details_df.get("Description", ""),
     }
     details_df = details_df.drop(columns=list(details_map.keys()), errors="ignore")
     for i, col in enumerate(details_map):
@@ -527,9 +533,12 @@ def upsert_google_sheet(record: dict):
     sheet = connect_google_sheet()
     _rewrite_google_worksheet(sheet.worksheet("Summary"), out_summary, SUMMARY_COLUMNS)
     _rewrite_google_worksheet(sheet.worksheet("Details"), out_details, DETAILS_COLUMNS)
+    st.cache_data.clear()
 
 def delete_evaluation(eval_id: str) -> bool:
     rid = norm_id(eval_id)
+    if not rid:
+        return False
     summary_existing = read_google_summary()
     details_existing = read_google_details()
     if summary_existing.empty and details_existing.empty:
@@ -551,6 +560,7 @@ def delete_evaluation(eval_id: str) -> bool:
     sheet = connect_google_sheet()
     _rewrite_google_worksheet(sheet.worksheet("Summary"), summary_existing, SUMMARY_COLUMNS)
     _rewrite_google_worksheet(sheet.worksheet("Details"), details_existing, DETAILS_COLUMNS)
+    st.cache_data.clear()
     return True
 
 def compute_weighted_score(df: pd.DataFrame) -> dict:
@@ -1395,7 +1405,7 @@ elif nav == "View":
             ).tolist()
             sel_label = st.selectbox("Select Record to View Details", record_options)
             sel_id = sel_label.split(" | ")[1]
-            selected_rows = filtered[filtered["Evaluation ID"].apply(norm_id) == norm_id(sel_id)]
+            selected_rows = summary[summary["Evaluation ID"].apply(norm_id) == norm_id(sel_id)]
             if selected_rows.empty:
                 st.error("Selected record was not found. Please refresh and try again.")
                 st.stop()
@@ -1461,15 +1471,9 @@ elif nav == "View":
                     st.session_state.goto_nav = "Evaluation"
                     st.rerun()
             with c4:
-                delete_label = st.selectbox(
-                    "Select Record to Delete",
-                    record_options,
-                    key="delete_record_select",
-                )
-                delete_id = delete_label.split(" | ")[1] if delete_label else ""
                 if st.button("🗑️ Delete Record", use_container_width=True):
-                    if delete_id and delete_evaluation(delete_id):
-                        st.success(f"Deleted {delete_id}")
+                    if delete_evaluation(sel_id):
+                        st.success(f"Deleted {sel_id}")
                         st.rerun()
             export_buf = io.BytesIO()
             with pd.ExcelWriter(export_buf, engine="openpyxl") as writer:
