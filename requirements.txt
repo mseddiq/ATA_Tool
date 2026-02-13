@@ -5,3 +5,6 @@ fpdf2
 python-pptx
 openpyxl
 pillow
+gspread
+google-auth
+
