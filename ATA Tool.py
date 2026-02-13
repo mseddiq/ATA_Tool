@@ -40,8 +40,22 @@ def connect_google_sheet():
         scopes=scopes
     )
     client = gspread.authorize(creds)
-    sheet = client.open_by_key("1ojy6fWLX9Cil6Wnmdb5P2Xh6RinGfnTI2ZaylINU2ko")
+    sheet = client.open("ATA_Audit_Log")
     return sheet
+
+
+def read_google_summary():
+    sheet = connect_google_sheet()
+    ws = sheet.worksheet("Summary")
+    data = ws.get_all_records()
+    return pd.DataFrame(data)
+
+
+def read_google_details():
+    sheet = connect_google_sheet()
+    ws = sheet.worksheet("Details")
+    data = ws.get_all_records()
+    return pd.DataFrame(data)
 DAMAC_TITLE = "DAMAC Properties"
 DAMAC_SUB1 = "Quality Assurance"
 DAMAC_SUB2 = "Telesales Division"
@@ -270,22 +284,21 @@ def safe_read_excel(path: str, sheet: str) -> pd.DataFrame:
     except Exception:
         return pd.DataFrame()
 def next_evaluation_id(evaluation_date_str: str) -> str:
+    df = read_google_summary()
     yyyymmdd = evaluation_date_str.replace("-", "")
-    summary = safe_read_excel(EXPORT_XLSX, "Summary")
-    if summary.empty or "Evaluation ID" not in summary.columns:
-        return f"ATA-{yyyymmdd}-0001"
     prefix = f"ATA-{yyyymmdd}-"
-    existing = summary["Evaluation ID"].apply(norm_id)
+
+    if df.empty or "evaluation_id" not in df.columns:
+        return f"{prefix}0001"
+
+    existing = df["evaluation_id"].astype(str)
     existing = existing[existing.str.startswith(prefix)]
+
     if existing.empty:
-        return f"ATA-{yyyymmdd}-0001"
-    def _seq(x: str) -> int:
-        try:
-            return int(x.split("-")[-1])
-        except Exception:
-            return 0
-    max_seq = max(existing.apply(_seq).tolist() + [0])
-    return f"ATA-{yyyymmdd}-{max_seq + 1:04d}"
+        return f"{prefix}0001"
+
+    max_seq = max(int(x.split("-")[-1]) for x in existing)
+    return f"{prefix}{max_seq+1:04d}"
 def write_formatted_report(
     record: dict,
     filename: str,
@@ -439,8 +452,8 @@ def upsert_google_sheet(record: dict):
             row["Comment"],
         ])
 def upsert_excel(record: dict) -> None:
-    summary_existing = safe_read_excel(EXPORT_XLSX, "Summary")
-    details_existing = safe_read_excel(EXPORT_XLSX, "Details")
+    summary_existing = read_google_summary()
+    details_existing = read_google_details()
     rid = norm_id(record["evaluation_id"])
     if not summary_existing.empty and "Evaluation ID" in summary_existing.columns:
         summary_existing["_rid"] = summary_existing["Evaluation ID"].apply(norm_id)
@@ -496,8 +509,8 @@ def upsert_excel(record: dict) -> None:
         write_formatted_report(record, EXPORT_XLSX, out_summary, out_details)
 def delete_evaluation(eval_id: str) -> bool:
     rid = norm_id(eval_id)
-    summary_existing = safe_read_excel(EXPORT_XLSX, "Summary")
-    details_existing = safe_read_excel(EXPORT_XLSX, "Details")
+    summary_existing = read_google_summary()
+    details_existing = read_google_details()
     if summary_existing.empty and details_existing.empty:
         return False
     changed = False
@@ -799,8 +812,8 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     if summary is None or details is None:
         if not os.path.exists(EXPORT_XLSX):
             return (None,) * 10 + (pd.DataFrame(), pd.DataFrame())
-        summary = safe_read_excel(EXPORT_XLSX, "Summary")
-        details = safe_read_excel(EXPORT_XLSX, "Details")
+        summary = read_google_summary()
+        details = read_google_details()
     if summary.empty or details.empty:
         return (None,) * 10 + (summary, details)
     for col in ["Failed Points", "Total Points", "Overall Score %"]:
@@ -1108,7 +1121,7 @@ st.sidebar.markdown(
 )
 nav = st.sidebar.radio("Navigation", ["Home", "Evaluation", "View", "Dashboard"], key="nav_radio")
 if nav == "Home":
-    summary = safe_read_excel(EXPORT_XLSX, "Summary")
+    summary = read_google_summary()
     st.markdown(
         f"""
         <div class="ata-hero left-align">
@@ -1324,8 +1337,8 @@ elif nav == "View":
         '<div class="page-title"><h2>Audit Records Explorer</h2></div>',
         unsafe_allow_html=True,
     )
-    summary = safe_read_excel(EXPORT_XLSX, "Summary")
-    details = safe_read_excel(EXPORT_XLSX, "Details")
+    summary = read_google_summary()
+    details = read_google_details()
     if summary.empty:
         st.info("No records found.")
     else:
@@ -1473,8 +1486,8 @@ elif nav == "Dashboard":
         '<div class="ata-hero left-align"><p class="t1">Performance Dashboard</p><p class="t2">Visualizing quality trends and failure distributions.</p></div>',
         unsafe_allow_html=True,
     )
-    summary_all = safe_read_excel(EXPORT_XLSX, "Summary")
-    details_all = safe_read_excel(EXPORT_XLSX, "Details")
+    summary_all = read_google_summary()
+    details_all = read_google_details()
     if not summary_all.empty and "Evaluation Date" in summary_all.columns:
         summary_all["Evaluation Date"] = pd.to_datetime(summary_all["Evaluation Date"], errors="coerce")
     if not details_all.empty and "Evaluation Date" in details_all.columns:
@@ -1585,4 +1598,3 @@ elif nav == "Dashboard":
                                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                 use_container_width=True,
                             )
-
