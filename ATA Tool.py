@@ -6,7 +6,6 @@ import tempfile
 from datetime import date, datetime
 from pathlib import Path
 from urllib.parse import quote
-
 import matplotlib.pyplot as plt
 import pandas as pd
 import gspread
@@ -18,10 +17,8 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from pptx import Presentation
 from pptx.util import Inches
-
 # -------------------- APP CONFIG --------------------
 st.set_page_config(page_title="DAMAC | ATA Tool", layout="wide")
-
 def get_data_dir() -> Path:
     if getattr(sys, "frozen", False):
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
@@ -30,30 +27,27 @@ def get_data_dir() -> Path:
     data_dir = base / "ATA_Tool"
     data_dir.mkdir(parents=True, exist_ok=True)
     return data_dir
-
-
 DATA_DIR = get_data_dir()
 PARAMETERS_JSON = str(DATA_DIR / "parameters.json")
 EXPORT_XLSX = str(DATA_DIR / "ATA_Audit_Log.xlsx")
-
 def connect_google_sheet():
     scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds_dict = dict(st.secrets["gcp_service_account"])
+    # Convert escaped newlines into real newlines
+    creds_dict["private_key"] = creds_dict["private_key"].replace("\\n", "\n")
     creds = Credentials.from_service_account_info(
-        st.secrets["gcp_service_account"],
+        creds_dict,
         scopes=scopes
     )
     client = gspread.authorize(creds)
     sheet = client.open("ATA_Audit_Log")
     return sheet
-
 DAMAC_TITLE = "DAMAC Properties"
 DAMAC_SUB1 = "Quality Assurance"
 DAMAC_SUB2 = "Telesales Division"
 APP_NAME = "ATA Audit the Auditor"
-
 LOGO_URL = "https://images.ctfassets.net/zoq5l15g49wj/2qCUAnuJ9WgJiGNxmTXkUa/0505928e3d7060e1bc0c3195d7def448/damac-gold.svg?fm=webp&w=200&h=202&fit=pad&q=60"
 LOGIN_LOGO_URL = "https://vectorseek.com/wp-content/uploads/2023/09/DAMAC-Properties-Logo-Vector.svg-.png"
-
 # -------------------- UI THEME --------------------
 st.markdown(
     """
@@ -75,7 +69,6 @@ st.markdown(
 }
 .ata-hero .t1 { font-size: 28px; font-weight: 900; margin: 0; letter-spacing: 1px; }
 .ata-hero .t2 { font-size: 16px; opacity: .85; margin-top: 8px; }
-
 .stat-card {
     background: white;
     padding: 20px;
@@ -88,9 +81,7 @@ st.markdown(
 .stat-card:hover { transform: translateY(-5px); }
 .stat-val { font-size: 24px; font-weight: 800; color: #0b1f3a; }
 .stat-label { font-size: 14px; color: #64748b; margin-top: 5px; }
-
 .ata-card { background:#fff; border:1px solid #eceff3; border-radius:16px; padding:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-
 .styled-table {
     width: 100%;
     border-collapse: collapse;
@@ -107,7 +98,6 @@ st.markdown(
     padding: 10px 15px;
     border-bottom: 1px solid #f1f5f9;
 }
-
 .credit-line {
     text-align: left;
     font-size: 12px;
@@ -153,7 +143,6 @@ st.markdown(
     margin-top: 10px;
     margin-bottom: 12px;
 }
-
 .login-wrap {max-width: 460px; margin: 20px auto 10px auto; padding: 26px; border:1px solid #e2e8f0; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08);} 
 .login-wrap.light {background:#ffffff;} 
 .login-wrap.dark {background:#0b1f3a; border-color:#1e3a8a;} 
@@ -167,10 +156,8 @@ st.markdown(
 """,
     unsafe_allow_html=True,
 )
-
 # -------------------- RUBRIC (SHEET-ALIGNED) --------------------
 ACCURACY_HEADER = "Accuracy of Scoring"
-
 ACCURACY_SUBPARAMS = [
     "Call Opening (Readiness / energy)",
     "Call Opening 2 (Confirming lead source / meeting focused)",
@@ -187,7 +174,6 @@ ACCURACY_SUBPARAMS = [
     "Took lead ownership",
     "Follow-up made properly",
 ]
-
 EVALUATION_QUALITY_PARAMS = [
     ("Adherence to QA Guidelines", "Followed QA process and aligned with calibration standards"),
     ("Evidence & Notes", "Left a clear, specific and improvement-focused comment"),
@@ -200,7 +186,6 @@ EVALUATION_QUALITY_PARAMS = [
     ("Feedback Actionability", "Conducted coaching session on the call topic (If required)"),
     ("Timeliness & Completeness", "On track with the evaluations target SLA"),
 ]
-
 DEFAULT_PARAMETERS = {
     "form_name": APP_NAME,
     "parameters": [
@@ -225,14 +210,10 @@ DEFAULT_PARAMETERS = {
         ],
     ],
 }
-
-
 def ensure_parameters_file() -> None:
     if not os.path.exists(PARAMETERS_JSON):
         with open(PARAMETERS_JSON, "w", encoding="utf-8") as f:
             json.dump(DEFAULT_PARAMETERS, f, indent=2, ensure_ascii=False)
-
-
 def load_parameters_df() -> pd.DataFrame:
     ensure_parameters_file()
     with open(PARAMETERS_JSON, "r", encoding="utf-8") as f:
@@ -247,8 +228,6 @@ def load_parameters_df() -> pd.DataFrame:
             df[c] = "" if c in ("Description", "Comment", "Group") else 1
     df["Points"] = pd.to_numeric(df["Points"], errors="coerce").fillna(0).astype(int)
     return df[["Group", "Parameter", "Points", "Description", "Result", "Comment"]].copy()
-
-
 def normalize_details_df(df: pd.DataFrame) -> pd.DataFrame:
     if df is None or df.empty or "Parameter" not in df.columns:
         return load_parameters_df()
@@ -261,8 +240,6 @@ def normalize_details_df(df: pd.DataFrame) -> pd.DataFrame:
             else:
                 df[col] = 1
     return df[["Group", "Parameter", "Points", "Description", "Result", "Comment"]].copy()
-
-
 def format_date(value) -> str:
     if value in ("", None):
         return ""
@@ -273,8 +250,6 @@ def format_date(value) -> str:
         return parsed.strftime("%d/%m/%Y")
     except Exception:
         return str(value)
-
-
 def norm_id(x) -> str:
     if x is None:
         return ""
@@ -287,8 +262,6 @@ def norm_id(x) -> str:
     if s.lower() in ("nan", "none"):
         return ""
     return s
-
-
 def safe_read_excel(path: str, sheet: str) -> pd.DataFrame:
     if not os.path.exists(path):
         return pd.DataFrame()
@@ -296,8 +269,6 @@ def safe_read_excel(path: str, sheet: str) -> pd.DataFrame:
         return pd.read_excel(path, sheet_name=sheet)
     except Exception:
         return pd.DataFrame()
-
-
 def next_evaluation_id(evaluation_date_str: str) -> str:
     yyyymmdd = evaluation_date_str.replace("-", "")
     summary = safe_read_excel(EXPORT_XLSX, "Summary")
@@ -308,17 +279,13 @@ def next_evaluation_id(evaluation_date_str: str) -> str:
     existing = existing[existing.str.startswith(prefix)]
     if existing.empty:
         return f"ATA-{yyyymmdd}-0001"
-
     def _seq(x: str) -> int:
         try:
             return int(x.split("-")[-1])
         except Exception:
             return 0
-
     max_seq = max(existing.apply(_seq).tolist() + [0])
     return f"ATA-{yyyymmdd}-{max_seq + 1:04d}"
-
-
 def write_formatted_report(
     record: dict,
     filename: str,
@@ -332,7 +299,6 @@ def write_formatted_report(
     if sheet_name in wb.sheetnames:
         del wb[sheet_name]
     ws = wb.create_sheet(sheet_name)
-
     header_dark_blue = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
     header_gray = PatternFill(start_color="C9C9C9", end_color="C9C9C9", fill_type="solid")
     header_light_gray = PatternFill(start_color="E5E5E5", end_color="E5E5E5", fill_type="solid")
@@ -340,7 +306,6 @@ def write_formatted_report(
     header_font = Font(color="FFFFFF", bold=True)
     dark_font = Font(color="000000", bold=True)
     center = Alignment(horizontal="center", vertical="center", wrap_text=True)
-
     details_cols = [
         "Evaluation ID",
         "Evaluation Date",
@@ -354,35 +319,28 @@ def write_formatted_report(
     acc_cols = ACCURACY_SUBPARAMS
     eval_cols = [p for p, _ in EVALUATION_QUALITY_PARAMS]
     all_cols = details_cols + acc_cols + eval_cols
-
     details_start = 1
     details_end = details_start + len(details_cols) - 1
     acc_start = details_end + 1
     acc_end = acc_start + len(acc_cols) - 1
     eval_start = acc_end + 1
     eval_end = eval_start + len(eval_cols) - 1
-
     ws.row_dimensions[1].height = 10
     header_row = 2
     label_row = 3
     data_start_row = 4
-
     ws.merge_cells(start_row=header_row, start_column=details_start, end_row=header_row, end_column=details_end)
     ws.merge_cells(start_row=header_row, start_column=acc_start, end_row=header_row, end_column=acc_end)
     ws.merge_cells(start_row=header_row, start_column=eval_start, end_row=header_row, end_column=eval_end)
-
     ws.cell(row=header_row, column=details_start, value="Details").fill = header_dark_blue
     ws.cell(row=header_row, column=details_start).font = header_font
     ws.cell(row=header_row, column=details_start).alignment = center
-
     ws.cell(row=header_row, column=acc_start, value="ACCURACY_SUB").fill = header_gray
     ws.cell(row=header_row, column=acc_start).font = dark_font
     ws.cell(row=header_row, column=acc_start).alignment = center
-
     ws.cell(row=header_row, column=eval_start, value="EVAL_QUALITY").fill = header_light_gray
     ws.cell(row=header_row, column=eval_start).font = dark_font
     ws.cell(row=header_row, column=eval_start).alignment = center
-
     for idx, col_name in enumerate(all_cols, start=1):
         cell = ws.cell(row=label_row, column=idx, value=col_name)
         cell.alignment = center
@@ -395,7 +353,6 @@ def write_formatted_report(
         else:
             cell.fill = header_light_gray
             cell.font = dark_font
-
     summary = summary_df if summary_df is not None else safe_read_excel(filename, "Summary")
     details = details_df if details_df is not None else safe_read_excel(filename, "Details")
     if not summary.empty:
@@ -441,19 +398,15 @@ def write_formatted_report(
             cell.fill = white_fill
             cell.alignment = center
         ws.row_dimensions[row_idx].height = 20
-
     ws.row_dimensions[header_row].height = 20
     ws.row_dimensions[label_row].height = 45
     for idx in range(1, len(all_cols) + 1):
         ws.column_dimensions[ws.cell(row=label_row, column=idx).column_letter].width = 18
     wb.save(filename)
-
-
 def upsert_google_sheet(record: dict):
     sheet = connect_google_sheet()
     summary_ws = sheet.worksheet("Summary")
     details_ws = sheet.worksheet("Details")
-
     summary_ws.append_row([
         record["evaluation_id"],
         record["evaluation_date"],
@@ -470,7 +423,6 @@ def upsert_google_sheet(record: dict):
         record["total_points"],
         datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     ])
-
     for _, row in record["details"].iterrows():
         details_ws.append_row([
             record["evaluation_id"],
@@ -486,8 +438,6 @@ def upsert_google_sheet(record: dict):
             row["Result"],
             row["Comment"],
         ])
-
-
 def upsert_excel(record: dict) -> None:
     summary_existing = safe_read_excel(EXPORT_XLSX, "Summary")
     details_existing = safe_read_excel(EXPORT_XLSX, "Details")
@@ -544,8 +494,6 @@ def upsert_excel(record: dict) -> None:
     write_formatted_report(record, EXPORT_XLSX, out_summary, out_details)
     if "Formatted Report" not in load_workbook(EXPORT_XLSX).sheetnames:
         write_formatted_report(record, EXPORT_XLSX, out_summary, out_details)
-
-
 def delete_evaluation(eval_id: str) -> bool:
     rid = norm_id(eval_id)
     summary_existing = safe_read_excel(EXPORT_XLSX, "Summary")
@@ -584,21 +532,16 @@ def delete_evaluation(eval_id: str) -> bool:
         }
         write_formatted_report(dummy_record, EXPORT_XLSX, summary_existing, details_existing)
     return changed
-
-
 def compute_weighted_score(df: pd.DataFrame) -> dict:
     df = df.copy()
     df["Result"] = df["Result"].fillna("Pass")
     accuracy_rows = df[df["Group"] == "ACCURACY_SUB"]
     eval_quality_rows = df[df["Group"] == "EVAL_QUALITY"]
-
     accuracy_failed = (accuracy_rows["Result"] == "Fail").any()
     accuracy_points = 1
     accuracy_passed = 0 if accuracy_failed else 1
-
     eval_quality_total = int(len(eval_quality_rows))
     eval_quality_passed = int((eval_quality_rows["Result"] == "Pass").sum())
-
     total_points = accuracy_points + eval_quality_total
     passed_points = accuracy_passed + eval_quality_passed
     failed_points = total_points - passed_points
@@ -609,8 +552,6 @@ def compute_weighted_score(df: pd.DataFrame) -> dict:
         "failed_points": failed_points,
         "total_points": total_points,
     }
-
-
 # -------------------- EXPORT HELPERS --------------------
 def copy_to_clipboard_button(label: str, text_to_copy: str, key: str) -> None:
     safe_text = text_to_copy.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
@@ -632,8 +573,6 @@ def copy_to_clipboard_button(label: str, text_to_copy: str, key: str) -> None:
     <div id="copystatus-{key}" style="font-family:sans-serif;color:#10b981;font-size:12px;margin-top:5px;text-align:center;"></div>
     """
     components.html(html, height=70)
-
-
 def email_html_inline(record: dict) -> str:
     def make_table(df):
         rows = []
@@ -665,7 +604,6 @@ def email_html_inline(record: dict) -> str:
             f"{''.join(rows)}"
             "</table>"
         )
-
     det = record["details"]
     email_subject = (
         f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
@@ -691,22 +629,17 @@ def email_html_inline(record: dict) -> str:
         <div style="margin-top:20px;padding:10px;background:#f8fafc;border-radius:8px;"><b>Reaudit Status:</b> {record['reaudit']}</div>
     </div>
     """
-
-
 class PDFReport(FPDF):
     def header(self):
         self.set_font("Arial", "B", 10)
         self.set_text_color(11, 31, 58)
         self.cell(0, 8, f"{DAMAC_TITLE} | {DAMAC_SUB1} | {DAMAC_SUB2}", ln=True, align="C")
         self.ln(2)
-
     def footer(self):
         self.set_y(-15)
         self.set_font("Arial", "I", 8)
         self.set_text_color(128, 128, 128)
         self.cell(0, 10, f"Page {self.page_no()}", align="C")
-
-
 def pdf_evaluation(record: dict) -> bytes:
     pdf = PDFReport()
     pdf.add_page()
@@ -722,7 +655,6 @@ def pdf_evaluation(record: dict) -> bytes:
         ["Audit Date", format_date(record["audit_date"]), "Call ID", record["call_id"]],
         ["Call Duration", record["call_duration"], "Call Disposition", record["call_disposition"]],
     ]
-
     def line_count(text: str, width: float) -> int:
         words = str(text).split()
         if not words:
@@ -737,7 +669,6 @@ def pdf_evaluation(record: dict) -> bytes:
                 lines += 1
                 line = word
         return lines
-
     col_widths = [42, 42, 42, 64]
     def truncate_text(text: str, width: float) -> str:
         text = str(text)
@@ -746,7 +677,6 @@ def pdf_evaluation(record: dict) -> bytes:
         while text and pdf.get_string_width(f"{text}...") > width:
             text = text[:-1]
         return f"{text}..." if text else ""
-
     row_height = 10
     for row in data:
         x = pdf.get_x()
@@ -772,7 +702,6 @@ def pdf_evaluation(record: dict) -> bytes:
         fill=True,
     )
     pdf.ln(5)
-
     def draw_section(title, df):
         pdf.set_font("Arial", "B", 10)
         pdf.set_text_color(11, 31, 58)
@@ -827,7 +756,6 @@ def pdf_evaluation(record: dict) -> bytes:
                 pdf.ln()
                 pdf.set_font("Arial", "", 7)
                 pdf.set_text_color(0, 0, 0)
-
         for _, r in df.iterrows():
             param, res, comm = str(r["Parameter"]), str(r["Result"]), str(r["Comment"])
             if comm.lower() == "nan":
@@ -840,15 +768,12 @@ def pdf_evaluation(record: dict) -> bytes:
             line_height = 4
             ensure_space(row_height + 2)
             start_x, start_y = pdf.get_x(), pdf.get_y()
-
             pdf.rect(start_x, start_y, param_w, row_height)
             pdf.rect(start_x + param_w, start_y, result_w, row_height)
             pdf.rect(start_x + param_w + result_w, start_y, comment_w, row_height)
-
             y_offset = (row_height - line_height) / 2
             pdf.set_xy(start_x + 1, start_y + y_offset)
             pdf.cell(param_w - 2, line_height, truncate_section(param, param_w - 2), border=0)
-
             pdf.set_xy(start_x + param_w, start_y + y_offset)
             if res == "Pass":
                 pdf.set_text_color(31, 143, 74)
@@ -858,13 +783,10 @@ def pdf_evaluation(record: dict) -> bytes:
                 pdf.set_text_color(0, 0, 0)
             pdf.cell(result_w, line_height, truncate_section(res, result_w - 2), border=0, align="C")
             pdf.set_text_color(0, 0, 0)
-
             pdf.set_xy(start_x + param_w + result_w + 1, start_y + 1)
             pdf.multi_cell(comment_w - 2, line_height, "\n".join(comment_lines), border=0)
-
             pdf.set_xy(start_x, start_y + row_height)
         pdf.ln(5)
-
     det = record["details"]
     draw_section("Accuracy of Scoring", det[det["Group"] == "ACCURACY_SUB"])
     draw_section("Evaluation Quality", det[det["Group"] == "EVAL_QUALITY"])
@@ -872,8 +794,6 @@ def pdf_evaluation(record: dict) -> bytes:
     pdf.cell(0, 8, f"Reaudit Status: {record['reaudit']}", ln=True)
     out = pdf.output(dest="S")
     return bytes(out) if isinstance(out, (bytes, bytearray)) else out.encode("latin-1")
-
-
 # -------------------- DASHBOARD LOGIC --------------------
 def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFrame | None = None):
     if summary is None or details is None:
@@ -892,7 +812,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         lambda r: (r["Failed Points"] / r["Total Points"]) if r["Total Points"] else 0,
         axis=1,
     )
-
     def add_bar_labels(ax):
         heights = [patch.get_height() for patch in ax.patches]
         if heights:
@@ -909,7 +828,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
                 fontsize=9,
                 color="#0b1f3a",
             )
-
     # 1. Trend Chart (Failure Rate)
     trend = summary.groupby("Month")["Failure Rate"].mean().sort_index()
     fig_trend, ax = plt.subplots(figsize=(6, 4))
@@ -920,7 +838,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     for x, y in zip(trend.index, trend.values * 100):
         ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 8), ha="center")
     plt.tight_layout()
-
     # 2. Heatmap
     fail_rows = details[details.get("Result", "") == "Fail"].copy()
     heat = pd.DataFrame()
@@ -960,7 +877,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         axh.set_title("Failure Distribution by Parameter", fontweight="bold", fontsize=11)
         plt.colorbar(im, ax=axh)
     plt.tight_layout()
-
     # 3. Pass vs Fail Pie Chart
     pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
     fail_points = summary["Failed Points"].sum() if "Failed Points" in summary.columns else 0
@@ -976,7 +892,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     axp.set_title("Pass vs Fail Points", fontweight="bold", fontsize=11)
     axp.axis("equal")
     plt.tight_layout()
-
     # 4. QA Average Scores
     fig_qa, axq = plt.subplots(figsize=(6, 4))
     qa_scores = summary.groupby("QA Name")["Overall Score %"].mean().sort_values(ascending=False)
@@ -986,7 +901,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     axq.tick_params(axis="x", rotation=20)
     add_bar_labels(axq)
     plt.tight_layout()
-
     # 5. Score per Date
     fig_score_date, axsd = plt.subplots(figsize=(6, 4))
     score_by_date = summary.groupby(summary["Evaluation Date"].dt.date)["Overall Score %"].mean()
@@ -996,7 +910,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     axsd.tick_params(axis="x", rotation=30)
     add_bar_labels(axsd)
     plt.tight_layout()
-
     # 6. Score per Month
     fig_score_month, axsm = plt.subplots(figsize=(6, 4))
     score_by_month = summary.groupby("Month")["Overall Score %"].mean().sort_index()
@@ -1008,7 +921,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     axsm.tick_params(axis="x", rotation=20)
     add_bar_labels(axsm)
     plt.tight_layout()
-
     # 7. Audits per Date
     fig_audit_date, axad = plt.subplots(figsize=(6, 4))
     audits_by_date = summary.groupby(summary["Evaluation Date"].dt.date).size()
@@ -1018,7 +930,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     axad.tick_params(axis="x", rotation=30)
     add_bar_labels(axad)
     plt.tight_layout()
-
     # 8. Audits per Month
     fig_audit_month, axam = plt.subplots(figsize=(6, 4))
     audits_by_month = summary.groupby("Month").size().sort_index()
@@ -1030,7 +941,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     axam.tick_params(axis="x", rotation=20)
     add_bar_labels(axam)
     plt.tight_layout()
-
     # 9. Most Failed Parameters
     fig_failed, axf = plt.subplots(figsize=(6, 4))
     failed_params = (
@@ -1048,7 +958,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         for i, value in enumerate(failed_params.values):
             axf.text(value + 0.1, i, f"{value}", va="center", fontsize=8)
     plt.tight_layout()
-
     # 10. Audits per Disposition
     fig_disp, axd = plt.subplots(figsize=(6, 4))
     disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts()
@@ -1065,8 +974,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=11)
     axd.axis("equal")
     plt.tight_layout()
-
-
     return (
         fig_heat,
         fig_trend,
@@ -1081,15 +988,11 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         summary,
         details,
     )
-
-
 def fig_to_png_bytes(fig) -> bytes:
     buf = io.BytesIO()
     fig.savefig(buf, format="png", dpi=150)
     buf.seek(0)
     return buf.read()
-
-
 def dashboard_pdf(figures, title="ATA Dashboard") -> bytes:
     pdf = PDFReport()
     for idx, fig in enumerate(figures):
@@ -1104,8 +1007,6 @@ def dashboard_pdf(figures, title="ATA Dashboard") -> bytes:
         os.remove(tmp_path)
     out = pdf.output(dest="S")
     return bytes(out) if isinstance(out, (bytes, bytearray)) else out.encode("latin-1")
-
-
 def dashboard_ppt(figures, title="ATA Dashboard") -> bytes:
     prs = Presentation()
     for fig in figures:
@@ -1115,13 +1016,9 @@ def dashboard_ppt(figures, title="ATA Dashboard") -> bytes:
     out = io.BytesIO()
     prs.save(out)
     return out.getvalue()
-
-
 # -------------------- MAIN APP --------------------
 LOGIN_USER = "Quality"
 LOGIN_PASSWORD = "Damac#2026#"
-
-
 def render_login() -> None:
     dark_mode = st.toggle("Dark mode", value=st.session_state.get("login_dark_mode", False), key="login_dark_mode")
     mode_class = "dark" if dark_mode else "light"
@@ -1139,10 +1036,8 @@ def render_login() -> None:
         password = st.text_input("Password", type="password", placeholder="Enter password")
         remember_me = st.checkbox("Remember me")
         submitted = st.form_submit_button("Login", use_container_width=True)
-
     body = f"User Name: {username or '(not provided)'}\nPassword: {password or '(not provided)'}"
     forgot_mailto = "mailto:Mohamed.Seddiq@damacgroup.com?subject=" + quote("Credentials Request") + "&body=" + quote(body)
-
     st.markdown(
         f"<div class='login-note'>Forget Credentials: <a href='{forgot_mailto}'>click here</a></div>"
         "<div class='login-extra'>This App was created for quality activity purposes.</div>",
@@ -1156,8 +1051,6 @@ def render_login() -> None:
             st.rerun()
         else:
             st.error("Invalid credentials")
-
-
 def reset_evaluation_form() -> None:
     for key in [
         "prefill",
@@ -1175,8 +1068,6 @@ def reset_evaluation_form() -> None:
     st.session_state.edit_mode = False
     st.session_state.edit_eval_id = ""
     st.session_state.prefill = {}
-
-
 for key in [
     "edit_mode",
     "edit_eval_id",
@@ -1198,15 +1089,12 @@ for key in [
             st.session_state[key] = False
         else:
             st.session_state[key] = ""
-
 if not st.session_state.get("authenticated", False):
     render_login()
     st.stop()
-
 if st.session_state.get("goto_nav"):
     st.session_state["nav_radio"] = st.session_state["goto_nav"]
     st.session_state["goto_nav"] = ""
-
 st.sidebar.markdown(
     f"""
     <div class="ata-hero">
@@ -1219,7 +1107,6 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 nav = st.sidebar.radio("Navigation", ["Home", "Evaluation", "View", "Dashboard"], key="nav_radio")
-
 if nav == "Home":
     summary = safe_read_excel(EXPORT_XLSX, "Summary")
     st.markdown(
@@ -1303,7 +1190,6 @@ if nav == "Home":
             use_container_width=True,
             hide_index=True,
         )
-
 elif nav == "Evaluation":
     st.markdown(
         '<div class="page-title"><h2>'
@@ -1378,7 +1264,6 @@ elif nav == "Evaluation":
         save_clicked = st.form_submit_button("💾 Save Evaluation")
         reset_clicked = st.form_submit_button("🔄 Reset Form")
         cancel_clicked = st.form_submit_button("↩️ Cancel Edit") if st.session_state.edit_mode else False
-
         if reset_clicked:
             reset_evaluation_form()
             st.session_state.reset_counter += 1
@@ -1392,12 +1277,10 @@ elif nav == "Evaluation":
             st.session_state.reaudit = "No"
             st.session_state.reset_notice = "Form reset."
             st.rerun()
-
         if cancel_clicked:
             reset_evaluation_form()
             st.session_state.goto_nav = "View"
             st.rerun()
-
         if save_clicked:
             if "Parameter" not in ed_acc.columns or "Parameter" not in ed_qual.columns:
                 st.error("Unable to save. Please reset the form and try again.")
@@ -1436,7 +1319,6 @@ elif nav == "Evaluation":
             st.session_state.last_saved_id = eval_id
             st.session_state.goto_nav = "View"
             st.rerun()
-
 elif nav == "View":
     st.markdown(
         '<div class="page-title"><h2>Audit Records Explorer</h2></div>',
@@ -1586,7 +1468,6 @@ elif nav == "View":
                 for grp in ["ACCURACY_SUB", "EVAL_QUALITY"]:
                     with st.expander(grp.replace("_", " ").title(), expanded=True):
                         st.table(det[det["Group"] == grp][["Parameter", "Result", "Comment"]])
-
 elif nav == "Dashboard":
     st.markdown(
         '<div class="ata-hero left-align"><p class="t1">Performance Dashboard</p><p class="t2">Visualizing quality trends and failure distributions.</p></div>',
@@ -1598,7 +1479,6 @@ elif nav == "Dashboard":
         summary_all["Evaluation Date"] = pd.to_datetime(summary_all["Evaluation Date"], errors="coerce")
     if not details_all.empty and "Evaluation Date" in details_all.columns:
         details_all["Evaluation Date"] = pd.to_datetime(details_all["Evaluation Date"], errors="coerce")
-
     if summary_all.empty or details_all.empty:
         st.info("No data available for analysis.")
     else:
@@ -1607,12 +1487,10 @@ elif nav == "Dashboard":
         disp_options = ["All"] + sorted(summary_all["Call Disposition"].dropna().unique().tolist())
         month_options = ["All"] + sorted(summary_all["Evaluation Date"].dt.to_period("M").astype(str).unique().tolist())
         date_options = ["All"] + sorted(summary_all["Evaluation Date"].dt.strftime("%d-%b").dropna().unique().tolist())
-
         qa_filter = filter_col1.selectbox("Filter by QA", qa_options)
         disp_filter = filter_col2.selectbox("Filter by Disposition", disp_options)
         month_filter = filter_col3.selectbox("Filter by Month", month_options)
         date_filter = filter_col4.selectbox("Filter by Date", date_options)
-
         summary = summary_all.copy()
         if qa_filter != "All":
             summary = summary[summary["QA Name"] == qa_filter]
@@ -1622,11 +1500,9 @@ elif nav == "Dashboard":
             summary = summary[summary["Evaluation Date"].dt.to_period("M").astype(str) == month_filter]
         if date_filter != "All":
             summary = summary[summary["Evaluation Date"].dt.strftime("%d-%b") == date_filter]
-
         details = details_all.copy()
         if "Evaluation ID" in summary.columns:
             details = details[details["Evaluation ID"].isin(summary["Evaluation ID"].unique())]
-
         if summary.empty or details.empty:
             st.info("No data available for analysis.")
         else:
@@ -1650,31 +1526,26 @@ elif nav == "Dashboard":
                     st.pyplot(fig_pie, use_container_width=True)
                 with row1[1]:
                     st.pyplot(fig_disp, use_container_width=True)
-
                 row2 = st.columns(2)
                 with row2[0]:
                     st.pyplot(fig_trend, use_container_width=True)
                 with row2[1]:
                     st.pyplot(fig_qa, use_container_width=True)
-
                 row3 = st.columns(2)
                 with row3[0]:
                     st.pyplot(fig_score_month, use_container_width=True)
                 with row3[1]:
                     st.pyplot(fig_score_date, use_container_width=True)
-
                 row4 = st.columns(2)
                 with row4[0]:
                     st.pyplot(fig_audit_month, use_container_width=True)
                 with row4[1]:
                     st.pyplot(fig_audit_date, use_container_width=True)
-
                 row5 = st.columns(2)
                 with row5[0]:
                     st.pyplot(fig_heat, use_container_width=True)
                 with row5[1]:
                     st.pyplot(fig_failed, use_container_width=True)
-
                 st.divider()
                 d1, d2, d3 = st.columns(3)
                 figures = [
