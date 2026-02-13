@@ -40,7 +40,7 @@ def connect_google_sheet():
         scopes=scopes
     )
     client = gspread.authorize(creds)
-    sheet = client.open("ATA_Audit_Log")
+    sheet = client.open_by_key("1ojy6fWLX9Cil6Wnmdb5P2Xh6RinGfnTI2ZaylINU2ko")
     return sheet
 DAMAC_TITLE = "DAMAC Properties"
 DAMAC_SUB1 = "Quality Assurance"
@@ -1585,3 +1585,4 @@ elif nav == "Dashboard":
                                 "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                 use_container_width=True,
                             )
+
