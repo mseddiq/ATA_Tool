@@ -9,7 +9,9 @@ from urllib.parse import quote
 
 import matplotlib.pyplot as plt
 import pandas as pd
+import gspread
 import streamlit as st
+from google.oauth2.service_account import Credentials
 import streamlit.components.v1 as components
 from fpdf import FPDF
 from openpyxl import load_workbook
@@ -33,6 +35,16 @@ def get_data_dir() -> Path:
 DATA_DIR = get_data_dir()
 PARAMETERS_JSON = str(DATA_DIR / "parameters.json")
 EXPORT_XLSX = str(DATA_DIR / "ATA_Audit_Log.xlsx")
+
+def connect_google_sheet():
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_info(
+        st.secrets["gcp_service_account"],
+        scopes=scopes
+    )
+    client = gspread.authorize(creds)
+    sheet = client.open("ATA_Audit_Log")
+    return sheet
 
 DAMAC_TITLE = "DAMAC Properties"
 DAMAC_SUB1 = "Quality Assurance"
@@ -435,6 +447,45 @@ def write_formatted_report(
     for idx in range(1, len(all_cols) + 1):
         ws.column_dimensions[ws.cell(row=label_row, column=idx).column_letter].width = 18
     wb.save(filename)
+
+
+def upsert_google_sheet(record: dict):
+    sheet = connect_google_sheet()
+    summary_ws = sheet.worksheet("Summary")
+    details_ws = sheet.worksheet("Details")
+
+    summary_ws.append_row([
+        record["evaluation_id"],
+        record["evaluation_date"],
+        record["audit_date"],
+        record["reaudit"],
+        record["qa_name"],
+        record["auditor"],
+        record["call_id"],
+        record["call_duration"],
+        record["call_disposition"],
+        record["overall_score"],
+        record["passed_points"],
+        record["failed_points"],
+        record["total_points"],
+        datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    ])
+
+    for _, row in record["details"].iterrows():
+        details_ws.append_row([
+            record["evaluation_id"],
+            record["evaluation_date"],
+            record["audit_date"],
+            record["reaudit"],
+            record["qa_name"],
+            record["auditor"],
+            record["call_id"],
+            record["overall_score"],
+            row["Group"],
+            row["Parameter"],
+            row["Result"],
+            row["Comment"],
+        ])
 
 
 def upsert_excel(record: dict) -> None:
@@ -1380,7 +1431,7 @@ elif nav == "Evaluation":
                 "total_points": metrics["total_points"],
                 "details": details_all,
             }
-            upsert_excel(record)
+            upsert_google_sheet(record)
             reset_evaluation_form()
             st.session_state.last_saved_id = eval_id
             st.session_state.goto_nav = "View"
