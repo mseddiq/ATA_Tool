@@ -12,6 +12,7 @@ import gspread
 import streamlit as st
 from google.oauth2.service_account import Credentials
 import streamlit.components.v1 as components
+import extra_streamlit_components as stx
 from fpdf import FPDF
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -122,6 +123,47 @@ DAMAC_SUB2 = "Telesales Division"
 APP_NAME = "ATA Audit the Auditor"
 LOGO_URL = "https://images.ctfassets.net/zoq5l15g49wj/2qCUAnuJ9WgJiGNxmTXkUa/0505928e3d7060e1bc0c3195d7def448/damac-gold.svg?fm=webp&w=200&h=202&fit=pad&q=60"
 LOGIN_LOGO_URL = "https://vectorseek.com/wp-content/uploads/2023/09/DAMAC-Properties-Logo-Vector.svg-.png"
+COOKIE_AUTH_KEY = "ata_auth"
+COOKIE_THEME_KEY = "ata_theme"
+COOKIE_REMEMBER_DAYS = 30
+
+
+def cookie_expiry(days: int = COOKIE_REMEMBER_DAYS) -> datetime:
+    return datetime.utcnow() + pd.Timedelta(days=days)
+
+
+def apply_theme_css() -> None:
+    dark = st.session_state.get("theme_mode", "light") == "dark"
+    if dark:
+        vars_css = """
+        --app-bg:#0b1220; --text:#e5e7eb; --card-bg:#111827; --card-border:#334155;
+        --muted:#94a3b8; --primary:#CEAE72; --hero-bg:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
+        --sidebar-box:linear-gradient(135deg,#111827 0%,#1f2937 100%); --table-header:#1f2937;
+        """
+    else:
+        vars_css = """
+        --app-bg:#f8fafc; --text:#0b1f3a; --card-bg:#ffffff; --card-border:#e2e8f0;
+        --muted:#64748b; --primary:#0b1f3a; --hero-bg:linear-gradient(135deg,#0b1f3a 0%,#1e3a8a 100%);
+        --sidebar-box:linear-gradient(135deg,#0b1f3a 0%,#1e3a8a 100%); --table-header:#0b1f3a;
+        """
+    st.markdown(
+        f"""
+        <style>
+        :root {{{vars_css}}}
+        .stApp {{ background: var(--app-bg); color: var(--text); }}
+        .ata-hero {{ background: var(--hero-bg) !important; color: #fff !important; }}
+        .logo-box, .credit-box {{ background: var(--sidebar-box) !important; }}
+        .stat-card, .ata-card {{ background: var(--card-bg) !important; border-color: var(--card-border) !important; color: var(--text) !important; }}
+        .stat-val, .view-header h2, .page-title h2 {{ color: var(--primary) !important; }}
+        .stat-label, .login-note, .login-extra {{ color: var(--muted) !important; }}
+        .styled-table th {{ background-color: var(--table-header) !important; }}
+        .styled-table td {{ color: var(--text) !important; border-bottom: 1px solid var(--card-border) !important; }}
+        .login-wrap.light, .login-wrap.dark {{ background: var(--card-bg) !important; border-color: var(--card-border) !important; }}
+        .login-title {{ color: var(--text) !important; }}
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
 # -------------------- UI THEME --------------------
 st.markdown(
     """
@@ -636,7 +678,9 @@ def email_html_inline(record: dict) -> str:
             "</table>"
         )
     det = record["details"]
-    
+    email_subject = (
+        f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
+    )
     return f"""
     <div style="font-family:sans-serif;max-width:800px;border:1px solid #eee;padding:20px;border-radius:15px;">
         <div style="background:#0b1f3a;color:white;padding:15px;border-radius:10px;margin-bottom:20px;">
@@ -1046,9 +1090,18 @@ def dashboard_ppt(figures, title="ATA Dashboard") -> bytes:
 # -------------------- MAIN APP --------------------
 LOGIN_USER = "Quality"
 LOGIN_PASSWORD = "Damac#2026#"
-def render_login() -> None:
-    dark_mode = st.toggle("Dark mode", value=st.session_state.get("login_dark_mode", False), key="login_dark_mode")
-    mode_class = "dark" if dark_mode else "light"
+
+def clear_login_state(cookie_manager) -> None:
+    cookie_manager.delete(COOKIE_AUTH_KEY)
+    cookie_manager.delete(COOKIE_THEME_KEY)
+    for key in ["authenticated", "remember_me", "nav_radio", "goto_nav", "prefill", "edit_mode", "edit_eval_id", "last_saved_id"]:
+        st.session_state.pop(key, None)
+    st.session_state.authenticated = False
+    st.session_state.remember_me = False
+
+
+def render_login(cookie_manager) -> None:
+    mode_class = "dark" if st.session_state.get("theme_mode", "light") == "dark" else "light"
     st.markdown(
         f"""
         <div class="login-wrap {mode_class}">
@@ -1074,6 +1127,11 @@ def render_login() -> None:
         if username == LOGIN_USER and password == LOGIN_PASSWORD:
             st.session_state.authenticated = True
             st.session_state.remember_me = remember_me
+            if remember_me:
+                cookie_manager.set(COOKIE_AUTH_KEY, "1", expires_at=cookie_expiry())
+                cookie_manager.set(COOKIE_THEME_KEY, st.session_state.get("theme_mode", "light"), expires_at=cookie_expiry())
+            else:
+                cookie_manager.delete(COOKIE_AUTH_KEY)
             st.success("Login successful")
             st.rerun()
         else:
@@ -1105,23 +1163,49 @@ for key in [
     "reset_counter",
     "authenticated",
     "remember_me",
-    "login_dark_mode",
+    "theme_mode",
 ]:
     if key not in st.session_state:
         if key == "prefill":
             st.session_state[key] = {}
         elif key == "reset_counter":
             st.session_state[key] = 0
-        elif key in ("authenticated", "remember_me", "login_dark_mode"):
+        elif key in ("authenticated", "remember_me"):
             st.session_state[key] = False
+        elif key == "theme_mode":
+            st.session_state[key] = "light"
         else:
             st.session_state[key] = ""
+
+cookie_manager = stx.CookieManager(key="ata_cookie_manager")
+cookie_auth = cookie_manager.get(COOKIE_AUTH_KEY)
+cookie_theme = cookie_manager.get(COOKIE_THEME_KEY)
+if cookie_theme in ("light", "dark"):
+    st.session_state.theme_mode = cookie_theme
+if not st.session_state.get("authenticated", False) and cookie_auth == "1":
+    st.session_state.authenticated = True
+    st.session_state.remember_me = True
+
 if not st.session_state.get("authenticated", False):
-    render_login()
+    apply_theme_css()
+    render_login(cookie_manager)
     st.stop()
 if st.session_state.get("goto_nav"):
     st.session_state["nav_radio"] = st.session_state["goto_nav"]
     st.session_state["goto_nav"] = ""
+
+apply_theme_css()
+sidebar_dark = st.sidebar.toggle("🌙 Dark theme", value=st.session_state.get("theme_mode", "light") == "dark")
+new_theme = "dark" if sidebar_dark else "light"
+if new_theme != st.session_state.get("theme_mode"):
+    st.session_state.theme_mode = new_theme
+    if st.session_state.get("remember_me"):
+        cookie_manager.set(COOKIE_THEME_KEY, new_theme, expires_at=cookie_expiry())
+    st.rerun()
+if st.sidebar.button("🚪 Logout", use_container_width=True):
+    clear_login_state(cookie_manager)
+    st.rerun()
+
 st.sidebar.markdown(
     f"""
     <div class="ata-hero">
@@ -1601,16 +1685,19 @@ elif nav == "Dashboard":
                         use_container_width=True,
                     )
                 with d3:
-                    all_export_buf = io.BytesIO()
-                    with pd.ExcelWriter(all_export_buf, engine="openpyxl") as writer:
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx") as tmp_file:
+                        temp_xlsx = tmp_file.name
+                    with pd.ExcelWriter(temp_xlsx, engine="openpyxl") as writer:
                         summary_all.to_excel(writer, sheet_name="Summary", index=False)
                         details_all.to_excel(writer, sheet_name="Details", index=False)
-                    all_export_buf.seek(0)
+                    write_formatted_report({"evaluation_id": "", "details": pd.DataFrame()}, temp_xlsx, summary_all, details_all)
+                    with open(temp_xlsx, "rb") as f:
+                        excel_bytes = f.read()
+                    os.remove(temp_xlsx)
                     st.download_button(
                         "📥 Download Excel Log",
-                        all_export_buf,
+                        excel_bytes,
                         "ATA_Audit_Log.xlsx",
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
-
