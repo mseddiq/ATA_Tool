@@ -138,68 +138,78 @@ def apply_theme_css() -> None:
         vars_css = """
         --primary:#CEAE72;
         --secondary:#0b1f3a;
-        --accent-gold:#CEAE72;
-        --bg-main:#0b1f3a;
-        --bg-card:#111827;
-        --text-main:#ffffff;
-        --text-muted:#cbd5e1;
+        --gold:#CEAE72;
+        --bg:#0b1f3a;
+        --card:#111827;
+        --text:#ffffff;
+        --muted:#cbd5e1;
         --border:#1f2937;
-        --grid:#334155;
-        --chart-bg:#111827;
-        --chart-primary:#CEAE72;
-        --chart-accent:#60a5fa;
+        --shadow:0 8px 22px rgba(2,6,23,0.38);
+        --shadow-gold:rgba(206,174,114,0.18);
+        --row-hover:rgba(206,174,114,0.08);
         --hero-bg:linear-gradient(135deg, var(--secondary) 0%, #1f2937 100%);
         --sidebar-box:linear-gradient(135deg, var(--secondary) 0%, #1f2937 100%);
+        --grid:#334155;
         """
     else:
         vars_css = """
         --primary:#0b1f3a;
         --secondary:#1e3a8a;
-        --accent-gold:#CEAE72;
-        --bg-main:#f8fafc;
-        --bg-card:#ffffff;
-        --text-main:#0b1f3a;
-        --text-muted:#64748b;
+        --gold:#CEAE72;
+        --bg:#f8fafc;
+        --card:#ffffff;
+        --text:#0b1f3a;
+        --muted:#64748b;
         --border:#e2e8f0;
-        --grid:#e5e7eb;
-        --chart-bg:#ffffff;
-        --chart-primary:#1e3a8a;
-        --chart-accent:#CEAE72;
+        --shadow:0 8px 20px rgba(15,23,42,0.08);
+        --shadow-gold:rgba(206,174,114,0.18);
+        --row-hover:rgba(30,58,138,0.05);
         --hero-bg:linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
         --sidebar-box:linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        --grid:#e5e7eb;
         """
     st.markdown(
         f"""
         <style>
         :root {{{vars_css}}}
-        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
-            background: var(--bg-main) !important;
-            color: var(--text-main) !important;
-        }}
-        .block-container, .stMarkdown, p, span, label, div {{ color: var(--text-main); }}
-        .ata-hero {{ background: var(--hero-bg) !important; color: #fff !important; border:1px solid var(--border) !important; }}
-        .logo-box, .credit-box {{ background: var(--sidebar-box) !important; border-color: var(--border) !important; }}
-        .credit-line {{ color: var(--accent-gold) !important; }}
-        .stat-card, .ata-card {{ background: var(--bg-card) !important; border:1px solid var(--border) !important; color: var(--text-main) !important; }}
+        html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"],
+        [data-testid="stSidebar"], .ata-card, .stat-card, .logo-box, .credit-box, .ata-hero,
+        [data-testid="stDataFrame"], .stDataFrame, .stTable, .stExpander, .streamlit-expanderHeader,
+        .stButton>button, .stDownloadButton>button {{ transition: all 220ms ease; }}
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{ background: var(--bg) !important; color: var(--text) !important; }}
+        .main .block-container {{ max-width: 1320px; padding-top: 1rem; padding-bottom: 1rem; row-gap: 14px; font-family: "Candara", "Segoe UI", sans-serif; }}
+        .block-container, .stMarkdown, p, span, label, div {{ color: var(--text); }}
+        .ata-hero {{ background: var(--hero-bg) !important; color: #fff !important; border:1px solid var(--border) !important; border-radius:18px; box-shadow: var(--shadow); margin-bottom: 14px; }}
+        .ata-hero .t1 {{ font-size: 28px; font-weight: 900; margin: 0; letter-spacing: 0.4px; }}
+        .ata-hero .t2 {{ font-size: 14px; opacity: .9; margin-top: 6px; }}
+        .ata-hero.left-align {{ text-align: left; }}
+        .page-section-header {{ background: var(--card); border:1px solid var(--border); border-radius:14px; padding:12px 16px; box-shadow: var(--shadow); margin-bottom:12px; }}
+        .page-section-header h2 {{ margin: 0; color: var(--primary); font-size: 22px; }}
+        .page-section-header p {{ margin: 4px 0 0 0; color: var(--muted); font-size: 13px; }}
+        .exec-card {{ background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); margin-bottom: 14px; }}
+        .exec-card:hover, .stat-card:hover, .ata-card:hover {{ transform: translateY(-2px); border-color: rgba(206,174,114,0.55) !important; box-shadow: 0 10px 25px var(--shadow-gold) !important; }}
+        .logo-box, .credit-box {{ background: var(--sidebar-box) !important; border:1px solid var(--border) !important; border-radius:14px; box-shadow: var(--shadow); }}
+        .credit-line {{ color: var(--gold) !important; font-style: italic; font-weight: 700; font-size:12px; }}
+        .stat-card, .ata-card {{ background: var(--card) !important; border:1px solid var(--border) !important; color: var(--text) !important; border-radius: 14px; box-shadow: var(--shadow); }}
         .stat-val, .view-header h2, .page-title h2 {{ color: var(--primary) !important; }}
-        .stat-label, .login-note, .login-extra {{ color: var(--text-muted) !important; }}
-        .styled-table th {{ background-color: var(--primary) !important; color: #fff !important; }}
-        .styled-table td {{ color: var(--text-main) !important; border-bottom: 1px solid var(--border) !important; }}
-        .login-wrap {{ background: var(--bg-card) !important; border-color: var(--border) !important; }}
-        .login-title {{ color: var(--text-main) !important; }}
-        .stButton>button, .stDownloadButton>button {{
-            background: var(--secondary) !important;
-            color: #fff !important;
-            border: 1px solid var(--border) !important;
-        }}
-        .stButton>button:hover, .stDownloadButton>button:hover {{
-            background: var(--primary) !important;
-            color: #fff !important;
-        }}
-        .stExpander, .streamlit-expanderHeader {{ background: var(--bg-card) !important; color: var(--text-main) !important; border-color: var(--border) !important; }}
-        [data-testid="stSidebar"] {{ background: var(--bg-main) !important; border-right: 1px solid var(--border); }}
-        [data-testid="stSidebar"] * {{ color: var(--text-main); }}
-        [data-testid="stDataFrame"], .stDataFrame, .stTable {{ background: var(--bg-card) !important; color: var(--text-main) !important; }}
+        .stat-label, .login-note, .login-extra, .muted {{ color: var(--muted) !important; }}
+        .kpi-tile { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; }
+        .kpi-tile .kpi-label { color: var(--muted); font-size:12px; }
+        .kpi-tile .kpi-value { color: var(--primary); font-size:22px; font-weight:800; margin-top:4px; }
+        .summary-ribbon { display:flex; gap:10px; flex-wrap:wrap; margin:8px 0 12px 0; }
+        .ribbon-pill { background: var(--bg); border:1px solid var(--border); border-radius:999px; padding:6px 12px; font-weight:700; font-size:12px; }
+        .styled-table th {{ background-color: var(--primary) !important; color: #fff !important; text-align:left; padding: 11px 12px; position: sticky; top: 0; z-index: 1; }}
+        .styled-table td {{ color: var(--text) !important; border-bottom: 1px solid var(--border) !important; padding:10px 12px; }}
+        .styled-table tr:hover td {{ background: var(--row-hover); }}
+        [data-testid="stDataFrame"], .stDataFrame, .stTable {{ background: var(--card) !important; color: var(--text) !important; border: 1px solid var(--border) !important; border-radius: 14px; box-shadow: var(--shadow); }}
+        .stButton>button, .stDownloadButton>button {{ background: linear-gradient(135deg, var(--secondary), var(--primary)) !important; color: #fff !important; border: 1px solid transparent !important; border-radius: 10px !important; min-height: 40px; }}
+        .stButton>button:hover, .stDownloadButton>button:hover {{ border: 1px solid var(--gold) !important; box-shadow: 0 0 0 3px rgba(206,174,114,0.20), 0 10px 20px var(--shadow-gold) !important; }}
+        .stExpander {{ border: 1px solid var(--border) !important; border-radius: 12px !important; background: var(--card) !important; box-shadow: var(--shadow); }}
+        .streamlit-expanderHeader:hover {{ border-left: 3px solid var(--gold) !important; padding-left: 8px; }}
+        [data-testid="stSidebar"] {{ background: var(--bg) !important; border-right: 1px solid var(--border); }}
+        [data-testid="stSidebar"] * {{ color: var(--text); }}
+        .login-wrap {{ background: var(--card) !important; border-color: var(--border) !important; border-radius: 16px; box-shadow: var(--shadow); }}
+        .login-title {{ color: var(--text) !important; }}
         hr {{ border-color: var(--border) !important; }}
         </style>
         """,
@@ -240,41 +250,38 @@ def style_chart(ax, theme: dict) -> None:
         ax.xaxis.label.set_color(theme["text"])
     if ax.yaxis.label:
         ax.yaxis.label.set_color(theme["text"])
-# -------------------- UI THEME --------------------
-st.markdown(
-    """
-<style>
-.block-container { padding-top: 1.0rem; font-family: "Candara", "Segoe UI", sans-serif; }
-.stApp, .stMarkdown, .stTextInput, .stSelectbox, .stDataEditor, .stButton, .stTable, .stDataFrame {
-  font-family: "Candara", "Segoe UI", sans-serif;
-}
-.ata-hero{ padding:22px; border-radius:20px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.3); margin-bottom:25px; }
-.ata-hero.left-align { text-align:left; }
-.ata-hero .t1 { font-size:28px; font-weight:900; margin:0; letter-spacing:1px; }
-.ata-hero .t2 { font-size:16px; opacity:.85; margin-top:8px; }
-.stat-card { padding:20px; border-radius:15px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); text-align:center; transition:transform 0.2s; }
-.stat-card:hover { transform: translateY(-5px); }
-.stat-val { font-size:24px; font-weight:800; }
-.stat-label { font-size:14px; margin-top:5px; }
-.ata-card { border-radius:16px; padding:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-.styled-table { width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }
-.styled-table th { text-align:left; padding:12px 15px; }
-.styled-table td { padding:10px 15px; }
-.credit-line { text-align:left; font-size:12px; margin-top:5px; font-style:italic; font-weight:700; }
-.sidebar-credit { margin-top:12px; }
-.logo-box { border-radius:14px; padding:8px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.08); display:flex; justify-content:center; align-items:center; margin-bottom:12px; }
-.credit-box { border-radius:14px; padding:10px 12px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.08); margin-top:10px; width:100%; }
-.view-header h2 { font-weight:800; margin-bottom:12px; }
-.page-title { margin-top:10px; margin-bottom:12px; }
-.login-wrap {max-width:460px; margin:20px auto 10px auto; padding:26px; border:1px solid var(--border); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08);} 
-.login-logo {display:flex; justify-content:center; margin-bottom:12px;} 
-.login-title {text-align:center; font-weight:800; margin-bottom:0;} 
-.login-note {text-align:center; font-size:12px; margin-top:8px;} 
-.login-extra {text-align:center; font-size:12px; margin-top:4px;} 
-</style>
-""",
-    unsafe_allow_html=True,
-)
+# -------------------- UI HELPERS --------------------
+def render_section_header(title: str, subtitle: str = "") -> None:
+    st.markdown(
+        f"""
+        <div class="page-section-header">
+            <h2>{title}</h2>
+            <p>{subtitle}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def open_card(extra_class: str = "") -> None:
+    st.markdown(f'<div class="exec-card {extra_class}">', unsafe_allow_html=True)
+
+
+def close_card() -> None:
+    st.markdown('</div>', unsafe_allow_html=True)
+
+
+def render_kpi_tile(label: str, value: str) -> None:
+    st.markdown(
+        f"""
+        <div class="kpi-tile">
+            <div class="kpi-label">{label}</div>
+            <div class="kpi-value">{value}</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 # -------------------- RUBRIC (SHEET-ALIGNED) --------------------
 ACCURACY_HEADER = "Accuracy of Scoring"
 ACCURACY_SUBPARAMS = [
@@ -1244,53 +1251,33 @@ st.sidebar.markdown(
 nav = st.sidebar.radio("Navigation", ["Home", "Evaluation", "View", "Dashboard"], key="nav_radio")
 if nav == "Home":
     summary = read_google_summary()
-    st.markdown(
-        f"""
-        <div class="ata-hero left-align">
-          <p class="t1">Welcome to {APP_NAME}</p>
-          <p class="t2">Monitor, evaluate, and improve auditor performance with real-time insights.</p>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    render_section_header(
+        f"Welcome to {APP_NAME}",
+        "Monitor, evaluate, and improve auditor performance with real-time executive insights.",
     )
+    open_card()
     c1, c2, c3, c4 = st.columns(4)
     if summary.empty:
-        for c, l in zip([c1, c2, c3, c4], ["Total Evals", "Avg Score", "Failure Rate", "Last Audit"]):
-            with c:
-                st.markdown(
-                    f"""
-                    <div class="stat-card">
-                      <div class="stat-val">0</div>
-                      <div class="stat-label">{l}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+        tiles = [("Total Evaluations", "0"), ("Average Score", "0"), ("Avg Failure Rate", "0"), ("Last Evaluation", "0")]
     else:
         for col in ["Failed Points", "Total Points", "Overall Score %"]:
             summary[col] = pd.to_numeric(summary[col], errors="coerce").fillna(0)
-        stats = [
-            len(summary),
-            f"{summary['Overall Score %'].mean():.2f}%",
+        tiles = [
+            ("Total Evaluations", str(len(summary))),
+            ("Average Score", f"{summary['Overall Score %'].mean():.2f}%"),
             (
-                f"{(summary['Failed Points'].sum() / summary['Total Points'].sum() * 100 if summary['Total Points'].sum() else 0):.2f}%"
+                "Avg Failure Rate",
+                f"{(summary['Failed Points'].sum() / summary['Total Points'].sum() * 100 if summary['Total Points'].sum() else 0):.2f}%",
             ),
-            format_date(summary.iloc[-1]["Evaluation Date"]),
+            ("Last Evaluation", format_date(summary.iloc[-1]["Evaluation Date"])),
         ]
-        labels = ["Total Evaluations", "Average Score", "Avg Failure Rate", "Last Evaluation"]
-        for c, v, l in zip([c1, c2, c3, c4], stats, labels):
-            with c:
-                st.markdown(
-                    f"""
-                    <div class="stat-card">
-                      <div class="stat-val">{v}</div>
-                      <div class="stat-label">{l}</div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-    st.write("")
-    st.write("")
+    for c, (label, value) in zip([c1, c2, c3, c4], tiles):
+        with c:
+            render_kpi_tile(label, value)
+    close_card()
+
+    open_card()
+    render_section_header("Quick Actions", "Go directly to key sections.")
     b1, b2, b3 = st.columns(3)
     with b1:
         if st.button("➕ New Evaluation", use_container_width=True):
@@ -1304,8 +1291,11 @@ if nav == "Home":
         if st.button("📊 Performance Dashboard", use_container_width=True):
             st.session_state.goto_nav = "Dashboard"
             st.rerun()
+    close_card()
+
     if not summary.empty:
-        st.markdown("### Recent Audited Transactions")
+        open_card()
+        render_section_header("Recent Audited Transactions", "Latest evaluated records.")
         recent = summary.sort_values("Evaluation Date", ascending=False).head(3).copy()
         recent["Evaluation Date"] = recent["Evaluation Date"].apply(format_date)
         recent["Audit Date"] = recent["Audit Date"].apply(format_date)
@@ -1325,12 +1315,11 @@ if nav == "Home":
             use_container_width=True,
             hide_index=True,
         )
+        close_card()
 elif nav == "Evaluation":
-    st.markdown(
-        '<div class="page-title"><h2>'
-        + ("Edit" if st.session_state.edit_mode else "New")
-        + " Evaluation</h2></div>",
-        unsafe_allow_html=True,
+    render_section_header(
+        ("Edit" if st.session_state.edit_mode else "New") + " Evaluation",
+        "Capture auditor performance with structured quality controls.",
     )
     if st.session_state.get("reset_notice"):
         st.success(st.session_state.reset_notice)
@@ -1340,6 +1329,15 @@ elif nav == "Evaluation":
         df_all = pre["details_df"].copy()
     df_all = normalize_details_df(df_all)
     df_all["Comment"] = df_all.get("Comment", "").fillna("")
+    open_card()
+    head_left, head_right = st.columns([3, 1])
+    with head_left:
+        st.markdown("**Evaluation Header**")
+        st.caption("Set transaction and QA metadata before scoring.")
+    with head_right:
+        current_reaudit = pre.get("reaudit", "No")
+        st.markdown(f'<div class="summary-ribbon"><span class="ribbon-pill">Reaudit: {current_reaudit}</span></div>', unsafe_allow_html=True)
+    close_card()
     with st.form("eval_form"):
         c1, c2, c3, c4 = st.columns(4)
         qa_name = c1.text_input("QA Name", value=pre.get("qa_name", ""), key="qa_name")
@@ -1367,38 +1365,42 @@ elif nav == "Evaluation":
         )
         df_acc = df_all[df_all["Group"] == "ACCURACY_SUB"].copy()
         df_qual = df_all[df_all["Group"] == "EVAL_QUALITY"].copy()
-        st.markdown("### Accuracy of Scoring")
         editor_key = f"ed_{st.session_state.reset_counter}"
-        ed_acc = st.data_editor(
+        with st.expander("Accuracy of Scoring", expanded=True):
+            ed_acc = st.data_editor(
             df_acc[["Parameter", "Result", "Comment"]],
             use_container_width=True,
-            key=f"{editor_key}_acc",
-            column_config={
-                "Result": st.column_config.SelectboxColumn(
-                    options=["Pass", "Fail"],
-                    required=True,
-                    help="Select Pass or Fail.",
-                ),
-                "Comment": st.column_config.TextColumn(),
-            },
-        )
-        st.markdown("### Evaluation Quality")
-        ed_qual = st.data_editor(
+                key=f"{editor_key}_acc",
+                column_config={
+                    "Result": st.column_config.SelectboxColumn(
+                        options=["Pass", "Fail"],
+                        required=True,
+                        help="Select Pass or Fail.",
+                    ),
+                    "Comment": st.column_config.TextColumn(),
+                },
+            )
+        with st.expander("Evaluation Quality", expanded=True):
+            ed_qual = st.data_editor(
             df_qual[["Parameter", "Result", "Comment"]],
             use_container_width=True,
-            key=f"{editor_key}_qual",
-            column_config={
-                "Result": st.column_config.SelectboxColumn(
-                    options=["Pass", "Fail"],
-                    required=True,
-                    help="Select Pass or Fail.",
-                ),
-                "Comment": st.column_config.TextColumn(),
-            },
-        )
-        save_clicked = st.form_submit_button("💾 Save Evaluation")
-        reset_clicked = st.form_submit_button("🔄 Reset Form")
-        cancel_clicked = st.form_submit_button("↩️ Cancel Edit") if st.session_state.edit_mode else False
+                key=f"{editor_key}_qual",
+                column_config={
+                    "Result": st.column_config.SelectboxColumn(
+                        options=["Pass", "Fail"],
+                        required=True,
+                        help="Select Pass or Fail.",
+                    ),
+                    "Comment": st.column_config.TextColumn(),
+                },
+            )
+        btn_spacer, btn_save, btn_reset, btn_cancel = st.columns([3, 1, 1, 1])
+        with btn_save:
+            save_clicked = st.form_submit_button("💾 Save Evaluation", use_container_width=True)
+        with btn_reset:
+            reset_clicked = st.form_submit_button("🔄 Reset Form", use_container_width=True)
+        with btn_cancel:
+            cancel_clicked = st.form_submit_button("↩️ Cancel Edit", use_container_width=True) if st.session_state.edit_mode else False
         if reset_clicked:
             reset_evaluation_form()
             st.session_state.reset_counter += 1
@@ -1455,10 +1457,7 @@ elif nav == "Evaluation":
             st.session_state.goto_nav = "View"
             st.rerun()
 elif nav == "View":
-    st.markdown(
-        '<div class="page-title"><h2>Audit Records Explorer</h2></div>',
-        unsafe_allow_html=True,
-    )
+    render_section_header("Audit Records Explorer", "Filter, inspect, and export transaction-level evaluations.")
     summary = read_google_summary()
     details = read_google_details()
     if summary.empty:
@@ -1469,6 +1468,8 @@ elif nav == "View":
             st.session_state.last_saved_id = ""
         summary["QA Name"] = summary["QA Name"].fillna("N/A")
         summary["Audit Date"] = summary["Audit Date"].fillna("N/A")
+        open_card()
+        st.markdown("**Filter Records**")
         qas = sorted(summary["QA Name"].unique().tolist())
         dates = sorted([str(d) for d in summary["Audit Date"].unique().tolist()])
         f1, f2, f3 = st.columns(3)
@@ -1482,9 +1483,12 @@ elif nav == "View":
             filtered = filtered[filtered["Audit Date"].astype(str) == dt_f]
         if search:
             filtered = filtered[filtered.apply(lambda r: search.lower() in str(r).lower(), axis=1)]
+        close_card()
         if filtered.empty:
             st.warning("No matches.")
         else:
+            open_card()
+            st.markdown("**Records Table**")
             display_df = filtered.copy()
             display_df.insert(0, "S.No", range(1, len(display_df) + 1))
             display_df["Evaluation Date"] = display_df["Evaluation Date"].apply(format_date)
@@ -1522,7 +1526,11 @@ elif nav == "View":
             st.markdown(
                 f"""
                 <div class="ata-card">
-                  <h3 style="margin-top:0; color:#0b1f3a;">Evaluation Details: {sel_id}</h3>
+                  <h3 style="margin-top:0;">Executive Details: {sel_id}</h3>
+                  <div class="summary-ribbon">
+                    <span class="ribbon-pill">Score: {row['Overall Score %']:.2f}%</span>
+                    <span class="ribbon-pill">Reaudit: {row['Reaudit']}</span>
+                  </div>
                   <table class="styled-table">
                     <tr><td><b>Evaluation ID:</b> {sel_id}</td><td><b>Evaluation Date:</b> {eval_date_display}</td></tr>
                     <tr><td><b>QA Name:</b> {row['QA Name']}</td><td><b>Auditor Name:</b> {row['Auditor']}</td></tr>
@@ -1535,7 +1543,8 @@ elif nav == "View":
                 """,
                 unsafe_allow_html=True,
             )
-            c1, c2, c3, c4 = st.columns(4)
+            st.markdown("**Actions**")
+            c1, c2, c3, c4, c5, c6 = st.columns(6)
             rec = {
                 "evaluation_id": sel_id,
                 "qa_name": row["QA Name"],
@@ -1559,8 +1568,9 @@ elif nav == "View":
                 )
             with c2:
                 copy_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}")
-                copy_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}")
             with c3:
+                copy_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}")
+            with c4:
                 if st.button("✏️ Edit Record", use_container_width=True):
                     st.session_state.edit_mode = True
                     st.session_state.edit_eval_id = sel_id
@@ -1577,11 +1587,13 @@ elif nav == "View":
                     }
                     st.session_state.goto_nav = "Evaluation"
                     st.rerun()
-            with c4:
+            with c5:
                 if st.button("🗑️ Delete Record", use_container_width=True):
                     if delete_evaluation(sel_id):
                         st.success(f"Deleted {sel_id}")
                         st.rerun()
+            with c6:
+                pass
             export_buf = io.BytesIO()
             with pd.ExcelWriter(export_buf, engine="openpyxl") as writer:
                 pd.DataFrame([row]).to_excel(writer, sheet_name="Summary", index=False)
@@ -1589,24 +1601,23 @@ elif nav == "View":
                     writer, sheet_name="Details", index=False
                 )
             export_buf.seek(0)
-            st.download_button(
-                "📥 Export Selected to Excel",
-                export_buf,
-                f"ATA_{sel_id}.xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
+            with c6:
+                st.download_button(
+                    "📥 Export Selected to Excel",
+                    export_buf,
+                    f"ATA_{sel_id}.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
             st.markdown("### Parameter Breakdown")
             det = details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)]
             if not det.empty:
                 for grp in ["ACCURACY_SUB", "EVAL_QUALITY"]:
                     with st.expander(grp.replace("_", " ").title(), expanded=True):
                         st.table(det[det["Group"] == grp][["Parameter", "Result", "Comment"]])
+            close_card()
 elif nav == "Dashboard":
-    st.markdown(
-        '<div class="ata-hero left-align"><p class="t1">Performance Dashboard</p><p class="t2">Visualizing quality trends and failure distributions.</p></div>',
-        unsafe_allow_html=True,
-    )
+    render_section_header("Performance Dashboard", "Visualizing quality trends and failure distributions.")
     summary_all = read_google_summary()
     details_all = read_google_details()
     if not summary_all.empty and "Evaluation Date" in summary_all.columns:
@@ -1616,6 +1627,8 @@ elif nav == "Dashboard":
     if summary_all.empty or details_all.empty:
         st.info("No data available for analysis.")
     else:
+        open_card()
+        st.markdown("**Dashboard Filters**")
         filter_col1, filter_col2, filter_col3, filter_col4 = st.columns(4)
         qa_options = ["All"] + sorted(summary_all["QA Name"].dropna().unique().tolist())
         disp_options = ["All"] + sorted(summary_all["Call Disposition"].dropna().unique().tolist())
@@ -1634,6 +1647,7 @@ elif nav == "Dashboard":
             summary = summary[summary["Evaluation Date"].dt.to_period("M").astype(str) == month_filter]
         if date_filter != "All":
             summary = summary[summary["Evaluation Date"].dt.strftime("%d-%b") == date_filter]
+        close_card()
         details = details_all.copy()
         if "Evaluation ID" in summary.columns:
             details = details[details["Evaluation ID"].isin(summary["Evaluation ID"].unique())]
@@ -1657,30 +1671,32 @@ elif nav == "Dashboard":
             if fig_heat:
                 row1 = st.columns(2)
                 with row1[0]:
-                    st.pyplot(fig_pie, use_container_width=True)
+                    open_card(); st.pyplot(fig_pie, use_container_width=True); close_card()
                 with row1[1]:
-                    st.pyplot(fig_disp, use_container_width=True)
+                    open_card(); st.pyplot(fig_disp, use_container_width=True); close_card()
                 row2 = st.columns(2)
                 with row2[0]:
-                    st.pyplot(fig_trend, use_container_width=True)
+                    open_card(); st.pyplot(fig_trend, use_container_width=True); close_card()
                 with row2[1]:
-                    st.pyplot(fig_qa, use_container_width=True)
+                    open_card(); st.pyplot(fig_qa, use_container_width=True); close_card()
                 row3 = st.columns(2)
                 with row3[0]:
-                    st.pyplot(fig_score_month, use_container_width=True)
+                    open_card(); st.pyplot(fig_score_month, use_container_width=True); close_card()
                 with row3[1]:
-                    st.pyplot(fig_score_date, use_container_width=True)
+                    open_card(); st.pyplot(fig_score_date, use_container_width=True); close_card()
                 row4 = st.columns(2)
                 with row4[0]:
-                    st.pyplot(fig_audit_month, use_container_width=True)
+                    open_card(); st.pyplot(fig_audit_month, use_container_width=True); close_card()
                 with row4[1]:
-                    st.pyplot(fig_audit_date, use_container_width=True)
+                    open_card(); st.pyplot(fig_audit_date, use_container_width=True); close_card()
                 row5 = st.columns(2)
                 with row5[0]:
-                    st.pyplot(fig_heat, use_container_width=True)
+                    open_card(); st.pyplot(fig_heat, use_container_width=True); close_card()
                 with row5[1]:
-                    st.pyplot(fig_failed, use_container_width=True)
+                    open_card(); st.pyplot(fig_failed, use_container_width=True); close_card()
                 st.divider()
+                open_card()
+                st.markdown("**Exports**")
                 d1, d2, d3 = st.columns(3)
                 figures = [
                     fig_pie,
@@ -1726,3 +1742,4 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+                close_card()
