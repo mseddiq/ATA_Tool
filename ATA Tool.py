@@ -636,9 +636,7 @@ def email_html_inline(record: dict) -> str:
             "</table>"
         )
     det = record["details"]
-    email_subject = (
-        f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
-    )
+    
     return f"""
     <div style="font-family:sans-serif;max-width:800px;border:1px solid #eee;padding:20px;border-radius:15px;">
         <div style="background:#0b1f3a;color:white;padding:15px;border-radius:10px;margin-bottom:20px;">
@@ -1615,3 +1613,4 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
