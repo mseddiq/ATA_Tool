@@ -141,8 +141,8 @@ def apply_theme_css() -> None:
         --accent-gold:#CEAE72;
         --bg-main:#0b1f3a;
         --bg-card:#111827;
-        --text-main:#ffffff;
-        --text-muted:#cbd5e1;
+        --text-main:#F8FAFC;
+        --text-muted:#94A3B8;
         --border:#1f2937;
         --grid:#334155;
         --chart-bg:#111827;
@@ -158,8 +158,8 @@ def apply_theme_css() -> None:
         --accent-gold:#CEAE72;
         --bg-main:#f8fafc;
         --bg-card:#ffffff;
-        --text-main:#0b1f3a;
-        --text-muted:#64748b;
+        --text-main: #0F172A;
+        --text-muted: #475569;
         --border:#e2e8f0;
         --grid:#0b1f3a;
         --chart-bg:#ffffff;
@@ -300,12 +300,38 @@ st.markdown(
 .stApp, .stMarkdown, .stTextInput, .stSelectbox, .stDataEditor, .stButton, .stTable, .stDataFrame {
   font-family: "Candara", "Segoe UI", sans-serif;
 }
-.ata-hero{ padding:22px; border-radius:20px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.3); margin-bottom:25px; }
+.ata-hero {
+    padding: 28px;
+    border-radius: 22px;
+    background: linear-gradient(
+        135deg,
+        var(--secondary),
+        var(--primary)
+    );
+    box-shadow: 0 18px 45px rgba(0,0,0,0.35);
+    margin-bottom: 28px;
+}
 .ata-hero.left-align { text-align:left; }
 .ata-hero .t1 { font-size:28px; font-weight:900; margin:0; letter-spacing:1px; }
 .ata-hero .t2 { font-size:16px; opacity:.85; margin-top:8px; }
-.stat-card { padding:20px; border-radius:15px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); text-align:center; transition:transform 0.2s; }
-.stat-card:hover { transform: translateY(-5px); }
+.stat-card {
+    padding: 24px;
+    border-radius: 18px;
+    backdrop-filter: blur(14px);
+    background: linear-gradient(
+        145deg,
+        rgba(255,255,255,0.06),
+        rgba(255,255,255,0.02)
+    );
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.25);
+    transition: all 0.25s ease;
+}
+.stat-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+}
+
 .stat-val { font-size:24px; font-weight:800; }
 .stat-label { font-size:14px; margin-top:5px; }
 .ata-card { border-radius:16px; padding:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
@@ -314,8 +340,15 @@ st.markdown(
 .styled-table td { padding:10px 15px; }
 .credit-line { text-align:left; font-size:12px; margin-top:5px; font-style:italic; font-weight:700; }
 .sidebar-credit { margin-top:12px; }
-.logo-box { border-radius:14px; padding:8px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.08); display:flex; justify-content:center; align-items:center; margin-bottom:12px; }
-.credit-box { border-radius:14px; padding:10px 12px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.08); margin-top:10px; width:100%; }
+.logo-box,
+.credit-box {
+    border-radius: 18px;
+    padding: 16px;
+    backdrop-filter: blur(10px);
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
+}
 .view-header h2 { font-weight:800; margin-bottom:12px; }
 .page-title { margin-top:10px; margin-bottom:12px; }
 .login-wrap {max-width:460px; margin:20px auto 10px auto; padding:26px; border:1px solid var(--border); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08);} 
@@ -1807,6 +1840,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
