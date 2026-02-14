@@ -122,9 +122,8 @@ DAMAC_SUB1 = "Quality Assurance"
 DAMAC_SUB2 = "Telesales Division"
 APP_NAME = "ATA Audit the Auditor"
 LOGO_URL = "https://images.ctfassets.net/zoq5l15g49wj/2qCUAnuJ9WgJiGNxmTXkUa/0505928e3d7060e1bc0c3195d7def448/damac-gold.svg?fm=webp&w=200&h=202&fit=pad&q=60"
-LOGIN_LOGO_URL = "https://vectorseek.com/wp-content/uploads/2023/09/DAMAC-Properties-Logo-Vector.svg-.png"
+LOGIN_LOGO_URL = "https://mir-s3-cdn-cf.behance.net/projects/404/4d64e8189082623.Y3JvcCwxMzgwLDEwODAsMjcwLDA.png"
 COOKIE_AUTH_KEY = "ata_auth"
-COOKIE_THEME_KEY = "ata_theme"
 COOKIE_REMEMBER_DAYS = 30
 
 
@@ -1168,9 +1167,9 @@ def render_login(cookie_manager) -> None:
             st.session_state.remember_me = remember_me
             if remember_me:
                 cookie_manager.set(COOKIE_AUTH_KEY, "1", expires_at=cookie_expiry())
-                cookie_manager.set(COOKIE_THEME_KEY, st.session_state.get("theme_mode", "light"), expires_at=cookie_expiry())
+                
             else:
-                cookie_manager.delete(COOKIE_AUTH_KEY)
+                
             st.success("Login successful")
             st.rerun()
         else:
@@ -1202,7 +1201,6 @@ for key in [
     "reset_counter",
     "authenticated",
     "remember_me",
-    "theme_mode",
 ]:
     if key not in st.session_state:
         if key == "prefill":
@@ -1211,16 +1209,12 @@ for key in [
             st.session_state[key] = 0
         elif key in ("authenticated", "remember_me"):
             st.session_state[key] = False
-        elif key == "theme_mode":
-            st.session_state[key] = "light"
+
         else:
             st.session_state[key] = ""
 
 cookie_manager = stx.CookieManager(key="ata_cookie_manager")
 cookie_auth = cookie_manager.get(COOKIE_AUTH_KEY)
-cookie_theme = cookie_manager.get(COOKIE_THEME_KEY)
-if cookie_theme in ("light", "dark"):
-    st.session_state.theme_mode = cookie_theme
 if not st.session_state.get("authenticated", False) and cookie_auth == "1":
     st.session_state.authenticated = True
     st.session_state.remember_me = True
@@ -1234,23 +1228,6 @@ if st.session_state.get("goto_nav"):
     st.session_state["goto_nav"] = ""
 
 apply_theme_css()
-current_dark = st.session_state.get("theme_mode", "light") == "dark"
-theme_label = "☀️ Light Mode" if current_dark else "🌙 Dark Mode"
-
-sidebar_dark = st.sidebar.toggle(theme_label, value=current_dark)
-new_theme = "dark" if sidebar_dark else "light"
-
-# preserve current page BEFORE toggle
-current_nav = st.session_state.get("nav_radio", "Home")
-
-if new_theme != st.session_state.get("theme_mode", "light"):
-    st.session_state.theme_mode = new_theme
-    cookie_manager.set(COOKIE_THEME_KEY, new_theme, expires_at=cookie_expiry())
-
-    # keep same page after rerun
-    st.session_state.nav_radio = current_nav
-    st.rerun()
-
 if st.sidebar.button("🚪 Logout", use_container_width=True):
     clear_login_state(cookie_manager)
     st.rerun()
@@ -1751,6 +1728,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
