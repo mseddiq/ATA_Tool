@@ -1124,23 +1124,10 @@ def dashboard_ppt(figures, title="ATA Dashboard") -> bytes:
 LOGIN_USER = "Quality"
 LOGIN_PASSWORD = "Damac#2026#"
 
-def clear_login_state(cookie_manager):
-    COOKIE_AUTH_KEY = "ata_auth"
-
-    # Safely delete cookie only if it exists
-    existing = cookie_manager.get(COOKIE_AUTH_KEY)
-    if existing is not None:
-        try:
-            cookie_manager.delete(COOKIE_AUTH_KEY)
-        except Exception:
-            pass  # Ignore delete errors safely
-
-    # Clear session state safely
-    for key in list(st.session_state.keys()):
-        st.session_state.pop(key, None)
-
-    st.session_state.authenticated = False
-    st.rerun()
+def clear_login_state(cookie_manager) -> None:
+    cookie_manager.delete(COOKIE_AUTH_KEY)
+    cookie_manager.delete(COOKIE_THEME_KEY)
+    st.session_state.clear()
 
 
 def render_login(cookie_manager) -> None:
