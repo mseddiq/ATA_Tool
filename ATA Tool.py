@@ -161,7 +161,7 @@ def apply_theme_css() -> None:
         --text-main:#0b1f3a;
         --text-muted:#64748b;
         --border:#e2e8f0;
-        --grid:#e5e7eb;
+        --grid:#0b1f3a;
         --chart-bg:#ffffff;
         --chart-primary:#1e3a8a;
         --chart-accent:#CEAE72;
@@ -1118,9 +1118,29 @@ LOGIN_USER = "Quality"
 LOGIN_PASSWORD = "Damac#2026#"
 
 def clear_login_state(cookie_manager) -> None:
-    cookie_manager.delete(COOKIE_AUTH_KEY)
-    cookie_manager.delete(COOKIE_THEME_KEY)
-    st.session_state.clear()
+    # Preserve theme preference
+    current_theme = st.session_state.get("theme_mode", "light")
+
+    # Safe cookie deletion
+    try:
+        if cookie_manager.get(COOKIE_AUTH_KEY):
+            cookie_manager.delete(COOKIE_AUTH_KEY)
+    except Exception:
+        pass
+
+    try:
+        if cookie_manager.get(COOKIE_THEME_KEY):
+            cookie_manager.delete(COOKIE_THEME_KEY)
+    except Exception:
+        pass
+
+    # Clear session safely
+    for key in list(st.session_state.keys()):
+        st.session_state.pop(key, None)
+
+    # Restore theme default
+    st.session_state.theme_mode = current_theme
+    st.session_state.authenticated = False
 
 
 def render_login(cookie_manager) -> None:
@@ -1726,3 +1746,4 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
