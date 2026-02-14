@@ -646,6 +646,9 @@ def copy_to_clipboard_button(label: str, text_to_copy: str, key: str) -> None:
     <div id="copystatus-{key}" style="font-family:sans-serif;color:#10b981;font-size:12px;margin-top:5px;text-align:center;"></div>
     """
     components.html(html, height=70)
+def email_subject_text(record: dict) -> str:
+    return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
+
 def email_html_inline(record: dict) -> str:
     def make_table(df):
         rows = []
@@ -678,16 +681,12 @@ def email_html_inline(record: dict) -> str:
             "</table>"
         )
     det = record["details"]
-    email_subject = (
-        f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
-    )
     return f"""
     <div style="font-family:sans-serif;max-width:800px;border:1px solid #eee;padding:20px;border-radius:15px;">
         <div style="background:#0b1f3a;color:white;padding:15px;border-radius:10px;margin-bottom:20px;">
             <h2 style="margin:0;">{DAMAC_TITLE} | ATA Evaluation</h2>
             <p style="margin:5px 0 0 0;opacity:0.8;">{DAMAC_SUB1} | {DAMAC_SUB2}</p>
         </div>
-        <p style="margin:0 0 15px 0;"><b>Email Subject:</b> {email_subject}</p>
         <table style="width:100%;margin-bottom:20px;font-size:14px;">
             <tr><td><b>Evaluation ID:</b> {record['evaluation_id']}</td><td><b>Evaluation Date:</b> {record['evaluation_date']}</td></tr>
             <tr><td><b>QA Name:</b> {record['qa_name']}</td><td><b>Auditor Name:</b> {record['auditor']}</td></tr>
@@ -1534,7 +1533,8 @@ elif nav == "View":
                     use_container_width=True,
                 )
             with c2:
-                copy_to_clipboard_button("📋 Copy Email Template", email_html_inline(rec), f"copy_{sel_id}")
+                copy_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}")
+                copy_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}")
             with c3:
                 if st.button("✏️ Edit Record", use_container_width=True):
                     st.session_state.edit_mode = True
