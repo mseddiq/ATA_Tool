@@ -172,9 +172,9 @@ def apply_theme_css() -> None:
     f"""
     <style>
     :root {{{vars_css}}}
-    header[data-testid="stHeader"] {
+    header[data-testid="stHeader"] {{
     background: transparent !important;
-}
+}}
 
     /* Force entire app background */
     html, body, .stApp, [data-testid="stAppViewContainer"] {{
@@ -1840,6 +1840,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
