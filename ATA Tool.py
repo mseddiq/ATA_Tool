@@ -1239,7 +1239,7 @@ if st.session_state.get("goto_nav"):
 
 apply_theme_css()
 current_dark = st.session_state.get("theme_mode", "light") == "dark"
-theme_label = "🌙 Dark Mode" if current_dark else "☀️ Light Mode"
+theme_label = "☀️ Light Mode" if current_dark else "🌙 Dark Mode"
 sidebar_dark = st.sidebar.toggle(theme_label, value=current_dark)
 new_theme = "dark" if sidebar_dark else "light"
 if new_theme != st.session_state.get("theme_mode"):
@@ -1746,4 +1746,5 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
