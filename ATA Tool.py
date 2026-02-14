@@ -172,6 +172,9 @@ def apply_theme_css() -> None:
     f"""
     <style>
     :root {{{vars_css}}}
+    header[data-testid="stHeader"] {
+    background: transparent !important;
+}
 
     /* Force entire app background */
     html, body, .stApp, [data-testid="stAppViewContainer"] {{
@@ -252,9 +255,6 @@ def apply_theme_css() -> None:
     </style>
     """,
     unsafe_allow_html=True,
-        header[data-testid="stHeader"] {
-    background: transparent !important;
-}
 )
 
 
@@ -299,9 +299,6 @@ st.markdown(
 .block-container { padding-top: 1.0rem; font-family: "Candara", "Segoe UI", sans-serif; }
 .stApp, .stMarkdown, .stTextInput, .stSelectbox, .stDataEditor, .stButton, .stTable, .stDataFrame {
   font-family: "Candara", "Segoe UI", sans-serif;
-}
-header[data-testid="stHeader"] {
-    background: transparent !important;
 }
 .ata-hero{ padding:22px; border-radius:20px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.3); margin-bottom:25px; }
 .ata-hero.left-align { text-align:left; }
@@ -1810,6 +1807,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
