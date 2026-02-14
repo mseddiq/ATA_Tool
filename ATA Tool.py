@@ -1169,7 +1169,7 @@ def render_login(cookie_manager) -> None:
                 cookie_manager.set(COOKIE_AUTH_KEY, "1", expires_at=cookie_expiry())
                 
             else:
-            st.success("Login successful")
+                st.success("Login successful")
             st.rerun()
         else:
             st.error("Invalid credentials")
@@ -1727,6 +1727,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
