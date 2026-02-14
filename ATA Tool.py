@@ -1246,7 +1246,7 @@ if new_theme != st.session_state.get("theme_mode"):
     st.session_state.theme_mode = new_theme
     cookie_manager.set(COOKIE_THEME_KEY, new_theme, expires_at=cookie_expiry())
     st.rerun()
-if st.sidebar.button("🚪 Logout", use_container_width=True):
+if st.sidebar.button("🔓 Logout", use_container_width=True):
     clear_login_state(cookie_manager)
     st.rerun()
 
@@ -1756,4 +1756,5 @@ elif nav == "Dashboard":
                         use_container_width=True,
                     )
                 close_card()
+
 
