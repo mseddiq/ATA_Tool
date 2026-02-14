@@ -136,34 +136,110 @@ def apply_theme_css() -> None:
     dark = st.session_state.get("theme_mode", "light") == "dark"
     if dark:
         vars_css = """
-        --app-bg:#0b1220; --text:#e5e7eb; --card-bg:#111827; --card-border:#334155;
-        --muted:#94a3b8; --primary:#CEAE72; --hero-bg:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);
-        --sidebar-box:linear-gradient(135deg,#111827 0%,#1f2937 100%); --table-header:#1f2937;
+        --primary:#CEAE72;
+        --secondary:#0b1f3a;
+        --accent-gold:#CEAE72;
+        --bg-main:#0b1f3a;
+        --bg-card:#111827;
+        --text-main:#ffffff;
+        --text-muted:#cbd5e1;
+        --border:#1f2937;
+        --grid:#334155;
+        --chart-bg:#111827;
+        --chart-primary:#CEAE72;
+        --chart-accent:#60a5fa;
+        --hero-bg:linear-gradient(135deg, var(--secondary) 0%, #1f2937 100%);
+        --sidebar-box:linear-gradient(135deg, var(--secondary) 0%, #1f2937 100%);
         """
     else:
         vars_css = """
-        --app-bg:#f8fafc; --text:#0b1f3a; --card-bg:#ffffff; --card-border:#e2e8f0;
-        --muted:#64748b; --primary:#0b1f3a; --hero-bg:linear-gradient(135deg,#0b1f3a 0%,#1e3a8a 100%);
-        --sidebar-box:linear-gradient(135deg,#0b1f3a 0%,#1e3a8a 100%); --table-header:#0b1f3a;
+        --primary:#0b1f3a;
+        --secondary:#1e3a8a;
+        --accent-gold:#CEAE72;
+        --bg-main:#f8fafc;
+        --bg-card:#ffffff;
+        --text-main:#0b1f3a;
+        --text-muted:#64748b;
+        --border:#e2e8f0;
+        --grid:#e5e7eb;
+        --chart-bg:#ffffff;
+        --chart-primary:#1e3a8a;
+        --chart-accent:#CEAE72;
+        --hero-bg:linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+        --sidebar-box:linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
         """
     st.markdown(
         f"""
         <style>
         :root {{{vars_css}}}
-        .stApp {{ background: var(--app-bg); color: var(--text); }}
-        .ata-hero {{ background: var(--hero-bg) !important; color: #fff !important; }}
-        .logo-box, .credit-box {{ background: var(--sidebar-box) !important; }}
-        .stat-card, .ata-card {{ background: var(--card-bg) !important; border-color: var(--card-border) !important; color: var(--text) !important; }}
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
+            background: var(--bg-main) !important;
+            color: var(--text-main) !important;
+        }}
+        .block-container, .stMarkdown, p, span, label, div {{ color: var(--text-main); }}
+        .ata-hero {{ background: var(--hero-bg) !important; color: #fff !important; border:1px solid var(--border) !important; }}
+        .logo-box, .credit-box {{ background: var(--sidebar-box) !important; border-color: var(--border) !important; }}
+        .credit-line {{ color: var(--accent-gold) !important; }}
+        .stat-card, .ata-card {{ background: var(--bg-card) !important; border:1px solid var(--border) !important; color: var(--text-main) !important; }}
         .stat-val, .view-header h2, .page-title h2 {{ color: var(--primary) !important; }}
-        .stat-label, .login-note, .login-extra {{ color: var(--muted) !important; }}
-        .styled-table th {{ background-color: var(--table-header) !important; }}
-        .styled-table td {{ color: var(--text) !important; border-bottom: 1px solid var(--card-border) !important; }}
-        .login-wrap.light, .login-wrap.dark {{ background: var(--card-bg) !important; border-color: var(--card-border) !important; }}
-        .login-title {{ color: var(--text) !important; }}
+        .stat-label, .login-note, .login-extra {{ color: var(--text-muted) !important; }}
+        .styled-table th {{ background-color: var(--primary) !important; color: #fff !important; }}
+        .styled-table td {{ color: var(--text-main) !important; border-bottom: 1px solid var(--border) !important; }}
+        .login-wrap {{ background: var(--bg-card) !important; border-color: var(--border) !important; }}
+        .login-title {{ color: var(--text-main) !important; }}
+        .stButton>button, .stDownloadButton>button {{
+            background: var(--secondary) !important;
+            color: #fff !important;
+            border: 1px solid var(--border) !important;
+        }}
+        .stButton>button:hover, .stDownloadButton>button:hover {{
+            background: var(--primary) !important;
+            color: #fff !important;
+        }}
+        .stExpander, .streamlit-expanderHeader {{ background: var(--bg-card) !important; color: var(--text-main) !important; border-color: var(--border) !important; }}
+        [data-testid="stSidebar"] {{ background: var(--bg-main) !important; border-right: 1px solid var(--border); }}
+        [data-testid="stSidebar"] * {{ color: var(--text-main); }}
+        [data-testid="stDataFrame"], .stDataFrame, .stTable {{ background: var(--bg-card) !important; color: var(--text-main) !important; }}
+        hr {{ border-color: var(--border) !important; }}
         </style>
         """,
         unsafe_allow_html=True,
     )
+
+
+def get_chart_theme() -> dict:
+    dark = st.session_state.get("theme_mode", "light") == "dark"
+    if dark:
+        return {
+            "bg": "#111827",
+            "grid": "#334155",
+            "text": "#ffffff",
+            "primary": "#CEAE72",
+            "accent": "#60a5fa",
+            "fail": "#ef4444",
+            "pass": "#10b981",
+        }
+    return {
+        "bg": "#ffffff",
+        "grid": "#e5e7eb",
+        "text": "#0b1f3a",
+        "primary": "#1e3a8a",
+        "accent": "#CEAE72",
+        "fail": "#ef4444",
+        "pass": "#10b981",
+    }
+
+
+def style_chart(ax, theme: dict) -> None:
+    ax.set_facecolor(theme["bg"])
+    for spine in ax.spines.values():
+        spine.set_color(theme["grid"])
+    ax.tick_params(colors=theme["text"])
+    ax.title.set_color(theme["text"])
+    if ax.xaxis.label:
+        ax.xaxis.label.set_color(theme["text"])
+    if ax.yaxis.label:
+        ax.yaxis.label.set_color(theme["text"])
 # -------------------- UI THEME --------------------
 st.markdown(
     """
@@ -172,101 +248,28 @@ st.markdown(
 .stApp, .stMarkdown, .stTextInput, .stSelectbox, .stDataEditor, .stButton, .stTable, .stDataFrame {
   font-family: "Candara", "Segoe UI", sans-serif;
 }
-.ata-hero{
-  background: linear-gradient(135deg, #0b1f3a 0%, #1e3a8a 100%);
-  padding: 22px;
-  border-radius: 20px;
-  color: white;
-  box-shadow: 0 10px 25px -5px rgba(0,0,0,0.3);
-  margin-bottom: 25px;
-}
-.ata-hero.left-align {
-  text-align: left;
-}
-.ata-hero .t1 { font-size: 28px; font-weight: 900; margin: 0; letter-spacing: 1px; }
-.ata-hero .t2 { font-size: 16px; opacity: .85; margin-top: 8px; }
-.stat-card {
-    background: white;
-    padding: 20px;
-    border-radius: 15px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
-    text-align: center;
-    transition: transform 0.2s;
-}
+.ata-hero{ padding:22px; border-radius:20px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.3); margin-bottom:25px; }
+.ata-hero.left-align { text-align:left; }
+.ata-hero .t1 { font-size:28px; font-weight:900; margin:0; letter-spacing:1px; }
+.ata-hero .t2 { font-size:16px; opacity:.85; margin-top:8px; }
+.stat-card { padding:20px; border-radius:15px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.05); text-align:center; transition:transform 0.2s; }
 .stat-card:hover { transform: translateY(-5px); }
-.stat-val { font-size: 24px; font-weight: 800; color: #0b1f3a; }
-.stat-label { font-size: 14px; color: #64748b; margin-top: 5px; }
-.ata-card { background:#fff; border:1px solid #eceff3; border-radius:16px; padding:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-.styled-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 10px 0;
-    font-size: 14px;
-}
-.styled-table th {
-    background-color: #0b1f3a;
-    color: #ffffff;
-    text-align: left;
-    padding: 12px 15px;
-}
-.styled-table td {
-    padding: 10px 15px;
-    border-bottom: 1px solid #f1f5f9;
-}
-.credit-line {
-    text-align: left;
-    font-size: 12px;
-    color: #0b1f3a;
-    margin-top: 5px;
-    font-style: italic;
-    font-weight: 700;
-}
-    .sidebar-credit {
-        margin-top: 12px;
-    }
-.logo-box {
-    background: linear-gradient(135deg, #0b1f3a 0%, #1e3a8a 100%);
-    border-radius: 14px;
-    padding: 8px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-bottom: 12px;
-}
-.credit-box {
-    background: linear-gradient(135deg, #0b1f3a 0%, #1e3a8a 100%);
-    border-radius: 14px;
-    padding: 10px 12px;
-    border: 1px solid #e2e8f0;
-    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.08);
-    margin-top: 10px;
-    width: 100%;
-}
-.credit-box .credit-line {
-    color: #CEAE72;
-    margin: 0;
-    font-weight: 700;
-}
-.view-header h2 {
-    color: #0b1f3a;
-    font-weight: 800;
-    margin-bottom: 12px;
-}
-.page-title {
-    margin-top: 10px;
-    margin-bottom: 12px;
-}
-.login-wrap {max-width: 460px; margin: 20px auto 10px auto; padding: 26px; border:1px solid #e2e8f0; border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08);} 
-.login-wrap.light {background:#ffffff;} 
-.login-wrap.dark {background:#0b1f3a; border-color:#1e3a8a;} 
+.stat-val { font-size:24px; font-weight:800; }
+.stat-label { font-size:14px; margin-top:5px; }
+.ata-card { border-radius:16px; padding:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+.styled-table { width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }
+.styled-table th { text-align:left; padding:12px 15px; }
+.styled-table td { padding:10px 15px; }
+.credit-line { text-align:left; font-size:12px; margin-top:5px; font-style:italic; font-weight:700; }
+.sidebar-credit { margin-top:12px; }
+.logo-box { border-radius:14px; padding:8px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.08); display:flex; justify-content:center; align-items:center; margin-bottom:12px; }
+.credit-box { border-radius:14px; padding:10px 12px; box-shadow:0 4px 6px -1px rgba(0,0,0,0.08); margin-top:10px; width:100%; }
+.view-header h2 { font-weight:800; margin-bottom:12px; }
+.page-title { margin-top:10px; margin-bottom:12px; }
+.login-wrap {max-width:460px; margin:20px auto 10px auto; padding:26px; border:1px solid var(--border); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08);} 
 .login-logo {display:flex; justify-content:center; margin-bottom:12px;} 
 .login-title {text-align:center; font-weight:800; margin-bottom:0;} 
-.login-wrap.light .login-title {color:#0b1f3a;} 
-.login-wrap.dark .login-title {color:#ffffff;} 
-.login-note {text-align:center; color:#64748b; font-size:12px; margin-top:8px;} 
+.login-note {text-align:center; font-size:12px; margin-top:8px;} 
 .login-extra {text-align:center; font-size:12px; margin-top:4px;} 
 </style>
 """,
@@ -882,6 +885,8 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         lambda r: (r["Failed Points"] / r["Total Points"]) if r["Total Points"] else 0,
         axis=1,
     )
+    theme = get_chart_theme()
+
     def add_bar_labels(ax):
         heights = [patch.get_height() for patch in ax.patches]
         if heights:
@@ -896,17 +901,19 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
                 xytext=(0, 6),
                 textcoords="offset points",
                 fontsize=9,
-                color="#0b1f3a",
+                color=theme["text"],
             )
     # 1. Trend Chart (Failure Rate)
     trend = summary.groupby("Month")["Failure Rate"].mean().sort_index()
     fig_trend, ax = plt.subplots(figsize=(6, 4))
-    ax.plot(trend.index, trend.values * 100, marker="o", color="#1e3a8a", linewidth=2, markersize=6)
-    ax.fill_between(trend.index, trend.values * 100, color="#1e3a8a", alpha=0.1)
+    ax.plot(trend.index, trend.values * 100, marker="o", color=theme["primary"], linewidth=2, markersize=6)
+    ax.fill_between(trend.index, trend.values * 100, color=theme["primary"], alpha=0.15)
     ax.set_title("Failure Rate Trend (%)", fontweight="bold", fontsize=11)
-    ax.grid(True, alpha=0.2)
+    ax.grid(True, alpha=0.25, color=theme["grid"])
     for x, y in zip(trend.index, trend.values * 100):
-        ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 8), ha="center")
+        ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 8), ha="center", color=theme["text"])
+    style_chart(ax, theme)
+    fig_trend.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 2. Heatmap
     fail_rows = details[details.get("Result", "") == "Fail"].copy()
@@ -925,14 +932,14 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         )
     fig_heat, axh = plt.subplots(figsize=(6, 4))
     if heat.empty:
-        axh.text(0.5, 0.5, "No failures recorded", ha="center", va="center")
+        axh.text(0.5, 0.5, "No failures recorded", ha="center", va="center", color=theme["text"])
         axh.axis("off")
     else:
         im = axh.imshow(heat.values, cmap="YlOrRd", aspect="auto")
         axh.set_xticks(range(len(heat.columns)))
-        axh.set_xticklabels(heat.columns)
+        axh.set_xticklabels(heat.columns, color=theme["text"])
         axh.set_yticks(range(len(heat.index)))
-        axh.set_yticklabels(heat.index, fontsize=8)
+        axh.set_yticklabels(heat.index, fontsize=8, color=theme["text"])
         for i in range(len(heat.index)):
             for j in range(len(heat.columns)):
                 axh.text(
@@ -941,11 +948,15 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
                     str(int(heat.iloc[i, j])),
                     ha="center",
                     va="center",
-                    color="black",
+                    color=theme["text"],
                     fontsize=8,
                 )
         axh.set_title("Failure Distribution by Parameter", fontweight="bold", fontsize=11)
-        plt.colorbar(im, ax=axh)
+        cbar = plt.colorbar(im, ax=axh)
+        cbar.ax.yaxis.set_tick_params(color=theme["text"])
+        plt.setp(cbar.ax.get_yticklabels(), color=theme["text"])
+        style_chart(axh, theme)
+    fig_heat.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 3. Pass vs Fail Pie Chart
     pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
@@ -955,30 +966,36 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         [pass_points, fail_points],
         labels=["Pass", "Fail"],
         autopct="%1.1f%%",
-        colors=["#10b981", "#ef4444"],
+        colors=[theme["pass"], theme["fail"]],
         startangle=90,
-        textprops={"fontsize": 10},
+        textprops={"fontsize": 10, "color": theme["text"]},
     )
     axp.set_title("Pass vs Fail Points", fontweight="bold", fontsize=11)
     axp.axis("equal")
+    style_chart(axp, theme)
+    fig_pie.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 4. QA Average Scores
     fig_qa, axq = plt.subplots(figsize=(6, 4))
     qa_scores = summary.groupby("QA Name")["Overall Score %"].mean().sort_values(ascending=False)
-    axq.bar(qa_scores.index, qa_scores.values, color="#2563eb")
+    axq.bar(qa_scores.index, qa_scores.values, color=theme["primary"])
     axq.set_title("QA Average Score (%)", fontweight="bold", fontsize=11)
     axq.set_ylabel("Score %")
     axq.tick_params(axis="x", rotation=20)
     add_bar_labels(axq)
+    style_chart(axq, theme)
+    fig_qa.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 5. Score per Date
     fig_score_date, axsd = plt.subplots(figsize=(6, 4))
     score_by_date = summary.groupby(summary["Evaluation Date"].dt.date)["Overall Score %"].mean()
     score_date_labels = [pd.to_datetime(d).strftime("%d-%b") for d in score_by_date.index]
-    axsd.bar(score_date_labels, score_by_date.values, color="#0ea5e9")
+    axsd.bar(score_date_labels, score_by_date.values, color=theme["accent"])
     axsd.set_title("Average Score by Date (%)", fontweight="bold", fontsize=11)
     axsd.tick_params(axis="x", rotation=30)
     add_bar_labels(axsd)
+    style_chart(axsd, theme)
+    fig_score_date.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 6. Score per Month
     fig_score_month, axsm = plt.subplots(figsize=(6, 4))
@@ -986,19 +1003,23 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     score_month_labels = [
         pd.Period(m).to_timestamp().strftime("%b-%y") for m in score_by_month.index
     ]
-    axsm.bar(score_month_labels, score_by_month.values, color="#14b8a6")
+    axsm.bar(score_month_labels, score_by_month.values, color=theme["primary"])
     axsm.set_title("Average Score by Month (%)", fontweight="bold", fontsize=11)
     axsm.tick_params(axis="x", rotation=20)
     add_bar_labels(axsm)
+    style_chart(axsm, theme)
+    fig_score_month.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 7. Audits per Date
     fig_audit_date, axad = plt.subplots(figsize=(6, 4))
     audits_by_date = summary.groupby(summary["Evaluation Date"].dt.date).size()
     audit_date_labels = [pd.to_datetime(d).strftime("%d-%b") for d in audits_by_date.index]
-    axad.bar(audit_date_labels, audits_by_date.values, color="#f59e0b")
+    axad.bar(audit_date_labels, audits_by_date.values, color=theme["accent"])
     axad.set_title("Audits per Date", fontweight="bold", fontsize=11)
     axad.tick_params(axis="x", rotation=30)
     add_bar_labels(axad)
+    style_chart(axad, theme)
+    fig_audit_date.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 8. Audits per Month
     fig_audit_month, axam = plt.subplots(figsize=(6, 4))
@@ -1006,10 +1027,12 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     audit_month_labels = [
         pd.Period(m).to_timestamp().strftime("%b-%y") for m in audits_by_month.index
     ]
-    axam.bar(audit_month_labels, audits_by_month.values, color="#f97316")
+    axam.bar(audit_month_labels, audits_by_month.values, color=theme["primary"])
     axam.set_title("Audits per Month", fontweight="bold", fontsize=11)
     axam.tick_params(axis="x", rotation=20)
     add_bar_labels(axam)
+    style_chart(axam, theme)
+    fig_audit_month.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 9. Most Failed Parameters
     fig_failed, axf = plt.subplots(figsize=(6, 4))
@@ -1020,13 +1043,15 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         .sort_values(ascending=True)
     )
     if failed_params.empty:
-        axf.text(0.5, 0.5, "No failures recorded", ha="center", va="center")
+        axf.text(0.5, 0.5, "No failures recorded", ha="center", va="center", color=theme["text"])
         axf.axis("off")
     else:
-        axf.barh(failed_params.index, failed_params.values, color="#ef4444")
+        axf.barh(failed_params.index, failed_params.values, color=theme["fail"])
         axf.set_title("Most Failed Parameters (Top 10)", fontweight="bold", fontsize=11)
         for i, value in enumerate(failed_params.values):
-            axf.text(value + 0.1, i, f"{value}", va="center", fontsize=8)
+            axf.text(value + 0.1, i, f"{value}", va="center", fontsize=8, color=theme["text"])
+    style_chart(axf, theme)
+    fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 10. Audits per Disposition
     fig_disp, axd = plt.subplots(figsize=(6, 4))
@@ -1036,13 +1061,15 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         labels=disp_counts.index,
         autopct="%1.1f%%",
         startangle=90,
-        colors=plt.cm.Pastel1.colors,
+        colors=[theme["primary"], theme["accent"], "#60a5fa", "#34d399", "#f59e0b", "#ef4444"],
         labeldistance=1.05,
         pctdistance=0.8,
-        textprops={"fontsize": 9},
+        textprops={"fontsize": 9, "color": theme["text"]},
     )
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=11)
     axd.axis("equal")
+    style_chart(axd, theme)
+    fig_disp.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     return (
         fig_heat,
@@ -1093,10 +1120,7 @@ LOGIN_PASSWORD = "Damac#2026#"
 def clear_login_state(cookie_manager) -> None:
     cookie_manager.delete(COOKIE_AUTH_KEY)
     cookie_manager.delete(COOKIE_THEME_KEY)
-    for key in ["authenticated", "remember_me", "nav_radio", "goto_nav", "prefill", "edit_mode", "edit_eval_id", "last_saved_id"]:
-        st.session_state.pop(key, None)
-    st.session_state.authenticated = False
-    st.session_state.remember_me = False
+    st.session_state.clear()
 
 
 def render_login(cookie_manager) -> None:
@@ -1194,12 +1218,13 @@ if st.session_state.get("goto_nav"):
     st.session_state["goto_nav"] = ""
 
 apply_theme_css()
-sidebar_dark = st.sidebar.toggle("🌙 Dark theme", value=st.session_state.get("theme_mode", "light") == "dark")
+current_dark = st.session_state.get("theme_mode", "light") == "dark"
+theme_label = "🌙 Dark Mode" if current_dark else "☀️ Light Mode"
+sidebar_dark = st.sidebar.toggle(theme_label, value=current_dark)
 new_theme = "dark" if sidebar_dark else "light"
 if new_theme != st.session_state.get("theme_mode"):
     st.session_state.theme_mode = new_theme
-    if st.session_state.get("remember_me"):
-        cookie_manager.set(COOKIE_THEME_KEY, new_theme, expires_at=cookie_expiry())
+    cookie_manager.set(COOKIE_THEME_KEY, new_theme, expires_at=cookie_expiry())
     st.rerun()
 if st.sidebar.button("🚪 Logout", use_container_width=True):
     clear_login_state(cookie_manager)
