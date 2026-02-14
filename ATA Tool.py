@@ -169,59 +169,91 @@ def apply_theme_css() -> None:
         --sidebar-box:linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
         """
     st.markdown(
-        f"""
-        <style>
-        :root {{{vars_css}}}
-        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{
-            background: var(--bg-main) !important;
-            color: var(--text-main) !important;
-        }}
-        h1, h2, h3, h4, h5, h6,
-        p, span, label,
-        .stMarkdown,
-        .stTextInput label,
-        .stSelectbox label,
-        .stDataFrame,
-        .stTable,
-        [data-testid="stMarkdownContainer"],
-        [data-testid="stSidebar"] *,
-        [data-testid="stAppViewContainer"] * {
-            color: var(--text-main) !important;
-        }
-        small, .small-text, .stCaption {
-            color: var(--text-muted) !important;
-            }
-            body.dark h2, body.dark h3 {
-    color: var(--accent-gold) !important;
-            }
-        .ata-hero {{ background: var(--hero-bg) !important; color: #fff !important; border:1px solid var(--border) !important; }}
-        .logo-box, .credit-box {{ background: var(--sidebar-box) !important; border-color: var(--border) !important; }}
-        .credit-line {{ color: var(--accent-gold) !important; }}
-        .stat-card, .ata-card {{ background: var(--bg-card) !important; border:1px solid var(--border) !important; color: var(--text-main) !important; }}
-        .stat-val, .view-header h2, .page-title h2 {{ color: var(--primary) !important; }}
-        .stat-label, .login-note, .login-extra {{ color: var(--text-muted) !important; }}
-        .styled-table th {{ background-color: var(--primary) !important; color: #fff !important; }}
-        .styled-table td {{ color: var(--text-main) !important; border-bottom: 1px solid var(--border) !important; }}
-        .login-wrap {{ background: var(--bg-card) !important; border-color: var(--border) !important; }}
-        .login-title {{ color: var(--text-main) !important; }}
-        .stButton>button, .stDownloadButton>button {{
-            background: var(--secondary) !important;
-            color: #fff !important;
-            border: 1px solid var(--border) !important;
-        }}
-        .stButton>button:hover, .stDownloadButton>button:hover {{
-            background: var(--primary) !important;
-            color: #fff !important;
-        }}
-        .stExpander, .streamlit-expanderHeader {{ background: var(--bg-card) !important; color: var(--text-main) !important; border-color: var(--border) !important; }}
-        [data-testid="stSidebar"] {{ background: var(--bg-main) !important; border-right: 1px solid var(--border); }}
-        [data-testid="stSidebar"] * {{ color: var(--text-main); }}
-        [data-testid="stDataFrame"], .stDataFrame, .stTable {{ background: var(--bg-card) !important; color: var(--text-main) !important; }}
-        hr {{ border-color: var(--border) !important; }}
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    f"""
+    <style>
+    :root {{{vars_css}}}
+
+    /* Force entire app background */
+    html, body, .stApp, [data-testid="stAppViewContainer"] {{
+        background: var(--bg-main) !important;
+        color: var(--text-main) !important;
+    }}
+
+    /* Force ALL text */
+    * {{
+        color: var(--text-main) !important;
+    }}
+
+    /* Muted text */
+    small, .small-text, .stCaption {{
+        color: var(--text-muted) !important;
+    }}
+
+    /* Headings */
+    h1, h2, h3, h4, h5, h6 {{
+        color: var(--primary) !important;
+        font-weight: 700;
+    }}
+
+    /* Sidebar */
+    [data-testid="stSidebar"] {{
+        background: var(--bg-main) !important;
+        border-right: 1px solid var(--border);
+    }}
+
+    [data-testid="stSidebar"] * {{
+        color: var(--text-main) !important;
+    }}
+
+    /* Inputs */
+    .stTextInput input,
+    .stSelectbox div,
+    .stDateInput input,
+    .stTextArea textarea {{
+        background: var(--bg-card) !important;
+        color: var(--text-main) !important;
+        border: 1px solid var(--border) !important;
+    }}
+
+    /* Tables */
+    .stDataFrame, .stTable {{
+        background: var(--bg-card) !important;
+        color: var(--text-main) !important;
+    }}
+
+    /* Buttons */
+    .stButton>button,
+    .stDownloadButton>button {{
+        background: var(--secondary) !important;
+        color: #ffffff !important;
+        border-radius: 10px !important;
+        border: 1px solid var(--border) !important;
+    }}
+
+    .stButton>button:hover,
+    .stDownloadButton>button:hover {{
+        background: var(--primary) !important;
+        color: #ffffff !important;
+        transition: 0.3s ease;
+    }}
+
+    /* Cards */
+    .stat-card, .ata-card, .login-wrap {{
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border) !important;
+        color: var(--text-main) !important;
+    }}
+
+    /* Gold accent for dark mode headings */
+    body.dark h2, body.dark h3 {{
+        color: var(--accent-gold) !important;
+    }}
+
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 
 
 def get_chart_theme() -> dict:
@@ -1763,6 +1795,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
