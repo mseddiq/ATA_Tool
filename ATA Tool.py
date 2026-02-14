@@ -225,7 +225,7 @@ def apply_theme_css() -> None:
     .stButton>button,
     .stDownloadButton>button {{
         background: var(--secondary) !important;
-        color: #ffffff !important;
+        color: #ad8f13 !important;
         border-radius: 10px !important;
         border: 1px solid var(--border) !important;
     }}
@@ -233,7 +233,7 @@ def apply_theme_css() -> None:
     .stButton>button:hover,
     .stDownloadButton>button:hover {{
         background: var(--primary) !important;
-        color: #0f0f0f !important;
+        color: #ad8f13 !important;
         transition: 0.3s ease;
     }}
 
@@ -1795,6 +1795,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
