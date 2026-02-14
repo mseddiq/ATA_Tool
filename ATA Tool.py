@@ -1323,18 +1323,21 @@ if st.session_state.get("goto_nav"):
     st.session_state["goto_nav"] = ""
 
 apply_theme_css()
+
+# preserve current page before changing theme
+current_nav = st.session_state.get("nav_radio", "Home")
+
 current_dark = st.session_state.get("theme_mode", "light") == "dark"
 theme_label = "☀️ Light Mode" if current_dark else "🌙 Dark Mode"
 
 sidebar_dark = st.sidebar.toggle(theme_label, value=current_dark)
 new_theme = "dark" if sidebar_dark else "light"
 
-if new_theme != st.session_state.theme_mode:
+if new_theme != st.session_state.get("theme_mode", "light"):
     st.session_state.theme_mode = new_theme
     cookie_manager.set(COOKIE_THEME_KEY, new_theme, expires_at=cookie_expiry())
-    st.rerun()
-    
-    # preserve page
+
+    # force page to stay the same after rerun
     st.session_state.nav_radio = current_nav
     st.rerun()
 if st.sidebar.button("🚪 Logout", use_container_width=True):
@@ -1837,6 +1840,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
