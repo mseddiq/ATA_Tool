@@ -122,7 +122,7 @@ DAMAC_SUB1 = "Quality Assurance"
 DAMAC_SUB2 = "Telesales Division"
 APP_NAME = "ATA Audit the Auditor"
 LOGO_URL = "https://images.ctfassets.net/zoq5l15g49wj/2qCUAnuJ9WgJiGNxmTXkUa/0505928e3d7060e1bc0c3195d7def448/damac-gold.svg?fm=webp&w=200&h=202&fit=pad&q=60"
-LOGIN_LOGO_URL = "https://mir-s3-cdn-cf.behance.net/projects/404/4d64e8189082623.Y3JvcCwxMzgwLDEwODAsMjcwLDA.png"
+LOGIN_LOGO_URL = "https://www.moinsgroup.com/wp-content/uploads/2025/01/Damac_logo.svg-1-1024x256.png"
 COOKIE_AUTH_KEY = "ata_auth"
 COOKIE_REMEMBER_DAYS = 30
 
@@ -1727,6 +1727,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
