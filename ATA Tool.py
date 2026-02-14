@@ -300,6 +300,9 @@ st.markdown(
 .stApp, .stMarkdown, .stTextInput, .stSelectbox, .stDataEditor, .stButton, .stTable, .stDataFrame {
   font-family: "Candara", "Segoe UI", sans-serif;
 }
+header[data-testid="stHeader"] {
+    background: transparent !important;
+}
 .ata-hero{ padding:22px; border-radius:20px; box-shadow:0 10px 25px -5px rgba(0,0,0,0.3); margin-bottom:25px; }
 .ata-hero.left-align { text-align:left; }
 .ata-hero .t1 { font-size:28px; font-weight:900; margin:0; letter-spacing:1px; }
@@ -1807,6 +1810,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
