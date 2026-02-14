@@ -233,7 +233,7 @@ def apply_theme_css() -> None:
     .stButton>button:hover,
     .stDownloadButton>button:hover {{
         background: var(--primary) !important;
-        color: #ffffff !important;
+        color: #0f0f0f !important;
         transition: 0.3s ease;
     }}
 
@@ -1795,6 +1795,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
