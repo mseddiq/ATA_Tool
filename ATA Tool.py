@@ -133,6 +133,9 @@ def cookie_expiry(days: int = COOKIE_REMEMBER_DAYS) -> datetime:
 
 
 def apply_theme_css() -> None:
+    header[data-testid="stHeader"] {
+    background: transparent !important;
+}
     dark = st.session_state.get("theme_mode", "light") == "dark"
     if dark:
         vars_css = """
@@ -1804,6 +1807,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
