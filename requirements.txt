@@ -7,4 +7,5 @@ openpyxl
 pillow
 gspread
 google-auth
+extra-streamlit-components
 
