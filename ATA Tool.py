@@ -132,131 +132,56 @@ def cookie_expiry(days: int = COOKIE_REMEMBER_DAYS) -> datetime:
     return datetime.utcnow() + pd.Timedelta(days=days)
 
 
-def apply_theme_css() -> None:
-    dark = st.session_state.get("theme_mode", "light") == "dark"
-    if dark:
-        vars_css = """
-        --primary:#CEAE72;
-        --secondary:#0b1f3a;
+def apply_theme_css():
+    st.markdown("""
+    <style>
+
+    :root {
+        --primary:#0b1f3a;
+        --secondary:#1e3a8a;
         --accent-gold:#CEAE72;
-        --bg-main:#0b1f3a;
+        --bg-main:#0f172a;
         --bg-card:#111827;
         --text-main:#F8FAFC;
         --text-muted:#94A3B8;
         --border:#1f2937;
-        --grid:#334155;
-        --chart-bg:#111827;
-        --chart-primary:#CEAE72;
-        --chart-accent:#60a5fa;
-        --hero-bg:linear-gradient(135deg, var(--secondary) 0%, #1f2937 100%);
-        --sidebar-box:linear-gradient(135deg, var(--secondary) 0%, #1f2937 100%);
-        """
-    else:
-        vars_css = """
-        --primary:#0b1f3a;
-        --secondary:#1e3a8a;
-        --accent-gold:#CEAE72;
-        --bg-main:#f8fafc;
-        --bg-card:#ffffff;
-        --text-main: #0F172A;
-        --text-muted: #475569;
-        --border:#e2e8f0;
-        --grid:#0b1f3a;
-        --chart-bg:#ffffff;
-        --chart-primary:#1e3a8a;
-        --chart-accent:#CEAE72;
-        --hero-bg:linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-        --sidebar-box:linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
-        """
-    st.markdown(
-    f"""
-    <style>
-    :root {{{vars_css}}}
-    header[data-testid="stHeader"] {{
-    background: transparent !important;
-}}
+    }
 
-    /* Force entire app background */
-    html, body, .stApp, [data-testid="stAppViewContainer"] {{
+    html, body, .stApp, [data-testid="stAppViewContainer"] {
         background: var(--bg-main) !important;
         color: var(--text-main) !important;
-    }}
+    }
 
-    /* Force ALL text */
-    * {{
-        color: var(--text-main) !important;
-    }}
-
-    /* Muted text */
-    small, .small-text, .stCaption {{
-        color: var(--text-muted) !important;
-    }}
-
-    /* Headings */
-    h1, h2, h3, h4, h5, h6 {{
-        color: var(--primary) !important;
-        font-weight: 700;
-    }}
-
-    /* Sidebar */
-    [data-testid="stSidebar"] {{
-        background: var(--bg-main) !important;
-        border-right: 1px solid var(--border);
-    }}
-
-    [data-testid="stSidebar"] * {{
-        color: var(--text-main) !important;
-    }}
-
-    /* Inputs */
-    .stTextInput input,
-    .stSelectbox div,
-    .stDateInput input,
-    .stTextArea textarea {{
-        background: var(--bg-card) !important;
-        color: var(--text-main) !important;
-        border: 1px solid var(--border) !important;
-    }}
-
-    /* Tables */
-    .stDataFrame, .stTable {{
-        background: var(--bg-card) !important;
-        color: var(--text-main) !important;
-    }}
-
-    /* Buttons */
-    .stButton>button,
-    .stDownloadButton>button {{
-        background: var(--secondary) !important;
-        color: #ad8f13 !important;
-        border-radius: 10px !important;
-        border: 1px solid var(--border) !important;
-    }}
-
-    .stButton>button:hover,
-    .stDownloadButton>button:hover {{
-        background: var(--primary) !important;
-        color: #ad8f13 !important;
-        transition: 0.3s ease;
-    }}
-
-    /* Cards */
-    .stat-card, .ata-card, .login-wrap {{
-        background: var(--bg-card) !important;
-        border: 1px solid var(--border) !important;
-        color: var(--text-main) !important;
-    }}
-
-    /* Gold accent for dark mode headings */
-    body.dark h2, body.dark h3 {{
+    h1, h2, h3, h4, h5, h6 {
         color: var(--accent-gold) !important;
-    }}
+        font-weight: 800;
+    }
+
+    .stat-card, .ata-card {
+        background: var(--bg-card) !important;
+        border: 1px solid var(--border);
+        border-radius: 18px;
+    }
+
+    .stButton>button {
+        background: var(--secondary);
+        color: var(--accent-gold);
+        border-radius: 10px;
+        border: 1px solid var(--border);
+    }
+
+    .stButton>button:hover {
+        background: var(--primary);
+        transition: 0.3s ease;
+    }
+
+    [data-testid="stSidebar"] {
+        background: var(--bg-card) !important;
+        border-right: 1px solid var(--border);
+    }
 
     </style>
-    """,
-    unsafe_allow_html=True,
-)
-
+    """, unsafe_allow_html=True)
 
 
 def get_chart_theme() -> dict:
@@ -1840,6 +1765,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
