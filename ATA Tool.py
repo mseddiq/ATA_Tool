@@ -176,7 +176,24 @@ def apply_theme_css() -> None:
             background: var(--bg-main) !important;
             color: var(--text-main) !important;
         }}
-        .block-container, .stMarkdown, p, span, label, div {{ color: var(--text-main); }}
+        h1, h2, h3, h4, h5, h6,
+        p, span, label,
+        .stMarkdown,
+        .stTextInput label,
+        .stSelectbox label,
+        .stDataFrame,
+        .stTable,
+        [data-testid="stMarkdownContainer"],
+        [data-testid="stSidebar"] *,
+        [data-testid="stAppViewContainer"] * {
+            color: var(--text-main) !important;
+        }
+        small, .small-text, .stCaption {
+            color: var(--text-muted) !important;
+            }
+            body.dark h2, body.dark h3 {
+    color: var(--accent-gold) !important;
+            }
         .ata-hero {{ background: var(--hero-bg) !important; color: #fff !important; border:1px solid var(--border) !important; }}
         .logo-box, .credit-box {{ background: var(--sidebar-box) !important; border-color: var(--border) !important; }}
         .credit-line {{ color: var(--accent-gold) !important; }}
@@ -1746,5 +1763,6 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
