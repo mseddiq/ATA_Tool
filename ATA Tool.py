@@ -168,49 +168,50 @@ def apply_theme_css() -> None:
         --sidebar-box:linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
         --grid:#e5e7eb;
         """
+
+    st.markdown(f"<style>:root {{{vars_css}}}</style>", unsafe_allow_html=True)
     st.markdown(
-        f"""
+        """
         <style>
-        :root {{{vars_css}}}
         html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"],
         [data-testid="stSidebar"], .ata-card, .stat-card, .logo-box, .credit-box, .ata-hero,
         [data-testid="stDataFrame"], .stDataFrame, .stTable, .stExpander, .streamlit-expanderHeader,
-        .stButton>button, .stDownloadButton>button {{ transition: all 220ms ease; }}
-        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] {{ background: var(--bg) !important; color: var(--text) !important; }}
-        .main .block-container {{ max-width: 1320px; padding-top: 1rem; padding-bottom: 1rem; row-gap: 14px; font-family: "Candara", "Segoe UI", sans-serif; }}
-        .block-container, .stMarkdown, p, span, label, div {{ color: var(--text); }}
-        .ata-hero {{ background: var(--hero-bg) !important; color: #fff !important; border:1px solid var(--border) !important; border-radius:18px; box-shadow: var(--shadow); margin-bottom: 14px; }}
-        .ata-hero .t1 {{ font-size: 28px; font-weight: 900; margin: 0; letter-spacing: 0.4px; }}
-        .ata-hero .t2 {{ font-size: 14px; opacity: .9; margin-top: 6px; }}
-        .ata-hero.left-align {{ text-align: left; }}
-        .page-section-header {{ background: var(--card); border:1px solid var(--border); border-radius:14px; padding:12px 16px; box-shadow: var(--shadow); margin-bottom:12px; }}
-        .page-section-header h2 {{ margin: 0; color: var(--primary); font-size: 22px; }}
-        .page-section-header p {{ margin: 4px 0 0 0; color: var(--muted); font-size: 13px; }}
-        .exec-card {{ background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); margin-bottom: 14px; }}
-        .exec-card:hover, .stat-card:hover, .ata-card:hover {{ transform: translateY(-2px); border-color: rgba(206,174,114,0.55) !important; box-shadow: 0 10px 25px var(--shadow-gold) !important; }}
-        .logo-box, .credit-box {{ background: var(--sidebar-box) !important; border:1px solid var(--border) !important; border-radius:14px; box-shadow: var(--shadow); }}
-        .credit-line {{ color: var(--gold) !important; font-style: italic; font-weight: 700; font-size:12px; }}
-        .stat-card, .ata-card {{ background: var(--card) !important; border:1px solid var(--border) !important; color: var(--text) !important; border-radius: 14px; box-shadow: var(--shadow); }}
-        .stat-val, .view-header h2, .page-title h2 {{ color: var(--primary) !important; }}
-        .stat-label, .login-note, .login-extra, .muted {{ color: var(--muted) !important; }}
+        .stButton>button, .stDownloadButton>button { transition: all 220ms ease; }
+        .stApp, [data-testid="stAppViewContainer"], [data-testid="stHeader"] { background: var(--bg) !important; color: var(--text) !important; }
+        .main .block-container { max-width: 1320px; padding-top: 1rem; padding-bottom: 1rem; row-gap: 14px; font-family: "Candara", "Segoe UI", sans-serif; }
+        .block-container, .stMarkdown, p, span, label, div { color: var(--text); }
+        .ata-hero { background: var(--hero-bg) !important; color: #fff !important; border:1px solid var(--border) !important; border-radius:18px; box-shadow: var(--shadow); margin-bottom: 14px; }
+        .ata-hero .t1 { font-size: 28px; font-weight: 900; margin: 0; letter-spacing: 0.4px; }
+        .ata-hero .t2 { font-size: 14px; opacity: .9; margin-top: 6px; }
+        .ata-hero.left-align { text-align: left; }
+        .page-section-header { background: var(--card); border:1px solid var(--border); border-radius:14px; padding:12px 16px; box-shadow: var(--shadow); margin-bottom:12px; }
+        .page-section-header h2 { margin: 0; color: var(--primary); font-size: 22px; }
+        .page-section-header p { margin: 4px 0 0 0; color: var(--muted); font-size: 13px; }
+        .exec-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); margin-bottom: 14px; }
+        .exec-card:hover, .stat-card:hover, .ata-card:hover { transform: translateY(-2px); border-color: rgba(206,174,114,0.55) !important; box-shadow: 0 10px 25px var(--shadow-gold) !important; }
+        .logo-box, .credit-box { background: var(--sidebar-box) !important; border:1px solid var(--border) !important; border-radius:14px; box-shadow: var(--shadow); }
+        .credit-line { color: var(--gold) !important; font-style: italic; font-weight: 700; font-size:12px; }
+        .stat-card, .ata-card { background: var(--card) !important; border:1px solid var(--border) !important; color: var(--text) !important; border-radius: 14px; box-shadow: var(--shadow); }
+        .stat-val, .view-header h2, .page-title h2 { color: var(--primary) !important; }
+        .stat-label, .login-note, .login-extra, .muted { color: var(--muted) !important; }
         .kpi-tile { background: var(--card); border:1px solid var(--border); border-radius:12px; padding:12px; }
         .kpi-tile .kpi-label { color: var(--muted); font-size:12px; }
         .kpi-tile .kpi-value { color: var(--primary); font-size:22px; font-weight:800; margin-top:4px; }
         .summary-ribbon { display:flex; gap:10px; flex-wrap:wrap; margin:8px 0 12px 0; }
         .ribbon-pill { background: var(--bg); border:1px solid var(--border); border-radius:999px; padding:6px 12px; font-weight:700; font-size:12px; }
-        .styled-table th {{ background-color: var(--primary) !important; color: #fff !important; text-align:left; padding: 11px 12px; position: sticky; top: 0; z-index: 1; }}
-        .styled-table td {{ color: var(--text) !important; border-bottom: 1px solid var(--border) !important; padding:10px 12px; }}
-        .styled-table tr:hover td {{ background: var(--row-hover); }}
-        [data-testid="stDataFrame"], .stDataFrame, .stTable {{ background: var(--card) !important; color: var(--text) !important; border: 1px solid var(--border) !important; border-radius: 14px; box-shadow: var(--shadow); }}
-        .stButton>button, .stDownloadButton>button {{ background: linear-gradient(135deg, var(--secondary), var(--primary)) !important; color: #fff !important; border: 1px solid transparent !important; border-radius: 10px !important; min-height: 40px; }}
-        .stButton>button:hover, .stDownloadButton>button:hover {{ border: 1px solid var(--gold) !important; box-shadow: 0 0 0 3px rgba(206,174,114,0.20), 0 10px 20px var(--shadow-gold) !important; }}
-        .stExpander {{ border: 1px solid var(--border) !important; border-radius: 12px !important; background: var(--card) !important; box-shadow: var(--shadow); }}
-        .streamlit-expanderHeader:hover {{ border-left: 3px solid var(--gold) !important; padding-left: 8px; }}
-        [data-testid="stSidebar"] {{ background: var(--bg) !important; border-right: 1px solid var(--border); }}
-        [data-testid="stSidebar"] * {{ color: var(--text); }}
-        .login-wrap {{ background: var(--card) !important; border-color: var(--border) !important; border-radius: 16px; box-shadow: var(--shadow); }}
-        .login-title {{ color: var(--text) !important; }}
-        hr {{ border-color: var(--border) !important; }}
+        .styled-table th { background-color: var(--primary) !important; color: #fff !important; text-align:left; padding: 11px 12px; position: sticky; top: 0; z-index: 1; }
+        .styled-table td { color: var(--text) !important; border-bottom: 1px solid var(--border) !important; padding:10px 12px; }
+        .styled-table tr:hover td { background: var(--row-hover); }
+        [data-testid="stDataFrame"], .stDataFrame, .stTable { background: var(--card) !important; color: var(--text) !important; border: 1px solid var(--border) !important; border-radius: 14px; box-shadow: var(--shadow); }
+        .stButton>button, .stDownloadButton>button { background: linear-gradient(135deg, var(--secondary), var(--primary)) !important; color: #fff !important; border: 1px solid transparent !important; border-radius: 10px !important; min-height: 40px; }
+        .stButton>button:hover, .stDownloadButton>button:hover { border: 1px solid var(--gold) !important; box-shadow: 0 0 0 3px rgba(206,174,114,0.20), 0 10px 20px var(--shadow-gold) !important; }
+        .stExpander { border: 1px solid var(--border) !important; border-radius: 12px !important; background: var(--card) !important; box-shadow: var(--shadow); }
+        .streamlit-expanderHeader:hover { border-left: 3px solid var(--gold) !important; padding-left: 8px; }
+        [data-testid="stSidebar"] { background: var(--bg) !important; border-right: 1px solid var(--border); }
+        [data-testid="stSidebar"] * { color: var(--text); }
+        .login-wrap { background: var(--card) !important; border-color: var(--border) !important; border-radius: 16px; box-shadow: var(--shadow); }
+        .login-title { color: var(--text) !important; }
+        hr { border-color: var(--border) !important; }
         </style>
         """,
         unsafe_allow_html=True,
@@ -1124,21 +1125,18 @@ def dashboard_ppt(figures, title="ATA Dashboard") -> bytes:
 LOGIN_USER = "Quality"
 LOGIN_PASSWORD = "Damac#2026#"
 
-def clear_login_state(cookie_manager):
-    COOKIE_AUTH_KEY = "ata_auth"
-
-    # Safely delete cookie only if it exists
-    existing = cookie_manager.get(COOKIE_AUTH_KEY)
-    if existing is not None:
-        try:
-            cookie_manager.delete(COOKIE_AUTH_KEY)
-        except Exception:
-            pass  # Ignore delete errors safely
-
-    # Clear session state safely
+def clear_login_state(cookie_manager) -> None:
     for key in list(st.session_state.keys()):
-        st.session_state.pop(key, None)
-
+        if key not in ("theme_mode",):
+            st.session_state.pop(key, None)
+    try:
+        all_cookies = cookie_manager.get_all() or {}
+        if COOKIE_AUTH_KEY in all_cookies:
+            cookie_manager.delete(COOKIE_AUTH_KEY)
+        if COOKIE_THEME_KEY in all_cookies:
+            cookie_manager.delete(COOKIE_THEME_KEY)
+    except Exception:
+        pass
     st.session_state.authenticated = False
     st.rerun()
 
@@ -1246,9 +1244,8 @@ if new_theme != st.session_state.get("theme_mode"):
     st.session_state.theme_mode = new_theme
     cookie_manager.set(COOKIE_THEME_KEY, new_theme, expires_at=cookie_expiry())
     st.rerun()
-if st.sidebar.button("🔓 Logout", use_container_width=True):
+if st.sidebar.button("🚪 Logout", use_container_width=True):
     clear_login_state(cookie_manager)
-    st.rerun()
 
 st.sidebar.markdown(
     f"""
@@ -1756,5 +1753,3 @@ elif nav == "Dashboard":
                         use_container_width=True,
                     )
                 close_card()
-
-
