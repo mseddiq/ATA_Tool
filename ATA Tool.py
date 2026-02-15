@@ -1108,7 +1108,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_heat.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 3. Pass vs Fail Pie Chart
-    pie_figsize = (6, 4)
+    pie_figsize = (6, 6)
     pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
     fail_points = summary["Failed Points"].sum() if "Failed Points" in summary.columns else 0
     fig_pie, axp = plt.subplots(figsize=pie_figsize)
@@ -1119,16 +1119,16 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         autopct="%1.1f%%",
         colors=pass_fail_colors,
         startangle=90,
-        radius=0.9,
-        labeldistance=1.15,
-        pctdistance=0.85,
+        radius=0.78,
+        labeldistance=1.08,
+        pctdistance=0.82,
         wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
         textprops={"color": theme["text"], "fontsize": 12, "weight": "medium"},
     )
     axp.set_title("Pass vs Fail Points", fontweight="bold", fontsize=12)
     axp.set_aspect("equal")
-    axp.set_xlim(-1.25, 1.25)
-    axp.set_ylim(-1.25, 1.25)
+    axp.set_xlim(-1.12, 1.12)
+    axp.set_ylim(-1.12, 1.12)
     axp.grid(False)
     style_chart(axp, theme)
     fig_pie.patch.set_facecolor(theme["bg"])
@@ -1212,24 +1212,25 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 10. Audits per Disposition
-    fig_disp, axd = plt.subplots(figsize=(6,4))
+    fig_disp, axd = plt.subplots(figsize=pie_figsize)
     disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts()
+    disp_labels = [str(lbl).replace(" ", "\n", 1) if len(str(lbl)) > 16 else str(lbl) for lbl in disp_counts.index]
     axd.pie(
         disp_counts.values,
-        labels=disp_counts.index,
+        labels=disp_labels,
         autopct="%1.1f%%",
         startangle=90,
         colors=theme["pie_alt"][: len(disp_counts.index)],
-        radius=0.9,
-        labeldistance=1.15,
-        pctdistance=0.85,
+        radius=0.78,
+        labeldistance=1.08,
+        pctdistance=0.82,
         wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
         textprops={"color": theme["text"], "fontsize": 12, "weight": "medium"},
     )
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=12)
     axd.set_aspect("equal")
-    axd.set_xlim(-1.25, 1.25)
-    axd.set_ylim(-1.25, 1.25)
+    axd.set_xlim(-1.12, 1.12)
+    axd.set_ylim(-1.12, 1.12)
     axd.grid(False)
     style_chart(axd, theme)
     fig_disp.patch.set_facecolor(theme["bg"])
