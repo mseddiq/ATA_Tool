@@ -226,14 +226,14 @@ def apply_theme_css(theme: dict):
     }}
 
     .ata-card, .ata-title-card, .ata-nav-card, .stat-card {{
-        background: #0F2238  !important;
+        background: var(--bg-card) !important;
         border: 1px solid var(--border) !important;
         border-radius: 16px;
         box-shadow: 0 10px 22px var(--card-shadow);
     }}
 
     .ata-title-card {{ padding: 1rem 1.2rem; margin: 0.2rem 0 1rem 0; }}
-    .ata-title-card .title {{ color: var(--bg-main); font-size: 2.15rem; font-weight: 800; margin: 0; }}
+    .ata-title-card .title {{ color: var(--accent-gold); font-size: 2.15rem; font-weight: 800; margin: 0; }}
     .ata-title-card .subtitle {{ color: var(--text-main); margin-top: 0.35rem; font-size: 0.98rem; }}
 
     h1, h2, h3, h4, h5, h6, .ata-hero .t1, .view-detail-title, .view-score {{ color: var(--accent-gold) !important; }}
@@ -241,7 +241,7 @@ def apply_theme_css(theme: dict):
     .ata-hero {{
         padding: 30px;
         border-radius: 16px;
-        background: #0F2238;
+        background: var(--bg-card);
         border: 1px solid var(--border);
         box-shadow: 0 10px 22px var(--card-shadow);
         margin-bottom: 18px;
@@ -835,7 +835,7 @@ def email_html_inline(record: dict) -> str:
     det = record["details"]
     return f"""
     <div style="font-family:sans-serif;max-width:800px;border:1px solid #eee;padding:20px;border-radius:15px;">
-        <div style="background:#F5F5DC;color:white;padding:15px;border-radius:10px;margin-bottom:20px;">
+        <div style="background:#0b1f3a;color:white;padding:15px;border-radius:10px;margin-bottom:20px;">
             <h2 style="margin:0;">{DAMAC_TITLE} | ATA Evaluation</h2>
             <p style="margin:5px 0 0 0;opacity:0.8;">{DAMAC_SUB1} | {DAMAC_SUB2}</p>
         </div>
