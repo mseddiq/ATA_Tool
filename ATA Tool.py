@@ -1212,7 +1212,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 10. Audits per Disposition
-    fig_disp, axd = plt.subplots(figsize=(6,4)
+    fig_disp, axd = plt.subplots(figsize=(6,4))
     disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts()
     axd.pie(
         disp_counts.values,
