@@ -198,7 +198,7 @@ def get_chart_theme() -> dict:
     return {
         "bg": "#ffffff",
         "grid": "#e5e7eb",
-        "text": "#0b1f3a",
+        "text": "#ffffff",
         "primary": "#1e3a8a",
         "accent": "#CEAE72",
         "fail": "#ef4444",
@@ -1727,6 +1727,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
