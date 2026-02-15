@@ -265,10 +265,10 @@ def apply_theme_css(theme: dict):
         transition: all 0.25s ease;
         cursor: pointer;
     }}
-    .action-card [data-testid="stButton"] > button {{ transition: all 0.25s ease; cursor: pointer; }}
-    .stat-card:hover, .action-card [data-testid="stButton"] > button:hover {{
-        transform: translateY(-6px);
-        box-shadow: 0 14px 30px {stat_hover_shadow};
+    .action-card {transition: all 0.25s ease;cursor: pointer;}
+    .action-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 14px 30px {stat_hover_shadow};
     }}
 
     .stat-val {{ font-size: 2rem; font-weight: 800; color: var(--accent-gold); }}
