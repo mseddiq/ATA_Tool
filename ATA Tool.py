@@ -1748,6 +1748,7 @@ elif nav == "View":
                 )
             export_buf.seek(0)
 
+            st.markdown('<div style="height: 14px;"></div>', unsafe_allow_html=True)
             top_actions = st.columns([1,1,1], gap="medium")
             with top_actions[0]:
                 st.download_button(
