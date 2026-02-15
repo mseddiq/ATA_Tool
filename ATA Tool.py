@@ -226,7 +226,7 @@ def apply_theme_css(theme: dict):
     }}
 
     .ata-card, .ata-title-card, .ata-nav-card, .stat-card {{
-        background: var(--bg-main) !important;
+        background: #0F2238  !important;
         border: 1px solid var(--border) !important;
         border-radius: 16px;
         box-shadow: 0 10px 22px var(--card-shadow);
