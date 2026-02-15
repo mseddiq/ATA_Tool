@@ -233,7 +233,7 @@ def apply_theme_css(theme: dict):
     }}
 
     .ata-title-card {{ padding: 1rem 1.2rem; margin: 0.2rem 0 1rem 0; }}
-    .ata-title-card .title {{ color: var(--accent-gold); font-size: 2.15rem; font-weight: 800; margin: 0; }}
+    .ata-title-card .title {{ color: var(--bg-main); font-size: 2.15rem; font-weight: 800; margin: 0; }}
     .ata-title-card .subtitle {{ color: var(--text-main); margin-top: 0.35rem; font-size: 0.98rem; }}
 
     h1, h2, h3, h4, h5, h6, .ata-hero .t1, .view-detail-title, .view-score {{ color: var(--accent-gold) !important; }}
