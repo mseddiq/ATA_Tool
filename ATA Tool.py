@@ -269,7 +269,7 @@ def apply_theme_css(theme: dict):
     .action-card:hover {
     transform: translateY(-6px);
     box-shadow: 0 14px 30px {stat_hover_shadow};
-    }}
+    }
 
     .stat-val {{ font-size: 2rem; font-weight: 800; color: var(--accent-gold); }}
     .stat-label {{ font-size: 1.05rem; color: var(--text-main); }}
