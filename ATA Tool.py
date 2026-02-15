@@ -290,7 +290,7 @@ def apply_theme_css(theme: dict):
 
     .eval-action-row [data-testid="stFormSubmitButton"] > button {{ color: {eval_btn_text} !important; }}
 
-    .stButton>button:hover, .stDownloadButton>button:hover, .stForm [data-testid="stFormSubmitButton"]>button:hover { transform: translateY(-4px); box-shadow: 0 12px 24px {stat_hover_shadow}; filter: brightness(1.06); }
+    .stButton>button:hover, .stDownloadButton>button:hover, .stForm [data-testid="stFormSubmitButton"]>button:hover {{ transform: translateY(-4px); box-shadow: 0 12px 24px {stat_hover_shadow}; filter: brightness(1.06); }}
 
     .dashboard-action-btn [data-testid="stDownloadButton"] > button {{ transition: all 0.25s ease; cursor: pointer; }}
     .dashboard-action-btn [data-testid="stDownloadButton"] > button:hover {{ transform: translateY(-5px); box-shadow: 0 12px 28px {dashboard_hover_shadow}; }}
