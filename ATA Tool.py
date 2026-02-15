@@ -301,14 +301,14 @@ def apply_theme_css(theme: dict):
     .styled-table td {{ padding:10px 15px; border:1px solid var(--grid); color: var(--text-main); }}
     .eval-details-table {{ width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }}
     .eval-details-table th, .eval-details-table td {{ padding:10px 12px; border:1px solid var(--border) !important; }}
-    .summary-records-table { width:100%; border-collapse:collapse; border:1px solid var(--border); }
-    .summary-records-table th { background:#112843; color:#F2D48A; font-weight:600; border:1px solid var(--border); padding:10px 12px; }
-    .summary-records-table td { background:var(--bg-card); color:#FFFFFF; border:1px solid var(--border); padding:10px 12px; }
-    .summary-records-table tr:hover td { background:#132d4a; }
+    .summary-records-table {{ width:100%; border-collapse:collapse; border:1px solid var(--border); }}
+    .summary-records-table th {{ background:#112843; color:#F2D48A; font-weight:600; border:1px solid var(--border); padding:10px 12px; }}
+    .summary-records-table td {{ background:var(--bg-card); color:#FFFFFF; border:1px solid var(--border); padding:10px 12px; }}
+    .summary-records-table tr:hover td {{ background:#132d4a; }}
 
-    .dark-breakdown-table { width:100%; border-collapse:collapse; border:1px solid var(--border); }
-    .dark-breakdown-table th { background:#112843; color:#F5E6B3; border:1px solid var(--border); padding:10px 12px; text-align:left; }
-    .dark-breakdown-table td { background:var(--bg-card); color:#E5E7EB; border:1px solid var(--border); padding:9px 12px; }
+    .dark-breakdown-table {{ width:100%; border-collapse:collapse; border:1px solid var(--border); }}
+    .dark-breakdown-table th {{ background:#112843; color:#F5E6B3; border:1px solid var(--border); padding:10px 12px; text-align:left; }}
+    .dark-breakdown-table td {{ background:var(--bg-card); color:#E5E7EB; border:1px solid var(--border); padding:9px 12px; }}
 
     [data-testid="stDataFrame"], [data-testid="stTable"] {{ border: 1px solid var(--border); border-radius: 12px; }}
     [data-testid="stDataFrame"] * {{ color: {table_body_text} !important; }}
