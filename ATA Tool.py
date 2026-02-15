@@ -355,6 +355,7 @@ def get_chart_theme() -> dict:
         "fail": "#ef4444",
         "pass": "#10b981",
         "pie_alt": theme["pie_alt"],
+        "border": theme["border"],
     }
 
 
@@ -760,11 +761,29 @@ def compute_weighted_score(df: pd.DataFrame) -> dict:
 def copy_to_clipboard_button(label: str, text_to_copy: str, key: str, theme: dict) -> None:
     safe_text = text_to_copy.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
     html = f"""
-    <button id="btn-{key}" style="width:100%;height:44px;border-radius:10px;border:1px solid {theme['border']};background:{theme['button_bg']};color:{theme['button_text']};font-weight:700;padding:0.5rem 1rem;cursor:pointer;transition:all 0.25s ease;">{label}</button>
+    <style>
+      html, body {{ margin:0; padding:0; background:transparent; }}
+      #wrap-{key} {{ width:100%; }}
+      #btn-{key} {{
+        width:100%;
+        height:44px;
+        border-radius:10px;
+        border:1px solid {theme['border']};
+        background:{theme['button_bg']};
+        color:{theme['button_text']};
+        font-weight:700;
+        padding:0.5rem 1rem;
+        cursor:pointer;
+        transition:all 0.25s ease;
+      }}
+      #btn-{key}:hover {{ transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.20); }}
+      #copystatus-{key} {{ font-family:sans-serif;color:#10b981;font-size:12px;margin-top:4px;text-align:center; }}
+    </style>
+    <div id="wrap-{key}">
+      <button id="btn-{key}">{label}</button>
+      <div id="copystatus-{key}"></div>
+    </div>
     <script>
-      const btn = document.getElementById("btn-{key}");
-      btn.onmouseover = () => {{ btn.style.transform = "translateY(-4px)"; btn.style.boxShadow = "0 12px 24px rgba(0,0,0,0.20)"; }};
-      btn.onmouseout = () => {{ btn.style.transform = "translateY(0px)"; btn.style.boxShadow = "none"; }};
       document.getElementById("btn-{key}").onclick = () => {{
         const text = `{safe_text}`;
         const htmlBlob = new Blob([text], {{ type: "text/html" }});
@@ -777,9 +796,8 @@ def copy_to_clipboard_button(label: str, text_to_copy: str, key: str, theme: dic
         }});
       }};
     </script>
-    <div id="copystatus-{key}" style="font-family:sans-serif;color:#10b981;font-size:12px;margin-top:5px;text-align:center;"></div>
     """
-    components.html(html, height=88)
+    components.html(html, height=64)
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
 
