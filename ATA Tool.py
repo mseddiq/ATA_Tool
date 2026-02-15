@@ -1108,7 +1108,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_heat.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 3. Pass vs Fail Pie Chart
-    pie_figsize = (6, 6)
+    pie_figsize = (6, 4)
     pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
     fail_points = summary["Failed Points"].sum() if "Failed Points" in summary.columns else 0
     fig_pie, axp = plt.subplots(figsize=pie_figsize)
@@ -1212,7 +1212,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 10. Audits per Disposition
-    fig_disp, axd = plt.subplots(figsize=pie_figsize)
+    fig_disp, axd = plt.subplots(figsize=(6,4)
     disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts()
     axd.pie(
         disp_counts.values,
