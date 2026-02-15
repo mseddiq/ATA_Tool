@@ -4,6 +4,7 @@ import os
 import sys
 import tempfile
 from datetime import date, datetime
+from uuid import uuid4
 from pathlib import Path
 from urllib.parse import quote
 import matplotlib.pyplot as plt
@@ -131,78 +132,225 @@ def cookie_expiry(days: int = COOKIE_REMEMBER_DAYS) -> datetime:
     return datetime.utcnow() + pd.Timedelta(days=days)
 
 
-def apply_theme_css():
-    st.markdown("""
+THEME_CONFIGS = {
+    "light": {
+        "main_bg": "#ffffff",
+        "card_bg": "#F5F5DC",
+        "title": "#CEAE72",
+        "text": "#000000",
+        "button_bg": "#F5F5DC",
+        "button_text": "#CEAE72",
+        "sidebar_text": "#000000",
+        "group_bg": "#F5F5DC",
+        "group_text": "#000000",
+        "grid": "#0b1f3a",
+        "border": "#CEAE72",
+        "secondary": "#e7dcc2",
+        "text_muted": "#374151",
+        "card_shadow": "rgba(11,31,58,0.15)",
+        "nav_bg": "#F5F5DC",
+        "input_bg": "#f3f4f6",
+        "pie_alt": ["#1e3a8a", "#CEAE72", "#2e5cb8", "#9c8a66", "#365ca1", "#c7a86e"],
+    },
+    "dark": {
+        "main_bg": "#0b1f3a",
+        "card_bg": "#08162a",
+        "title": "#CEAE72",
+        "text": "#ffffff",
+        "button_bg": "#08162a",
+        "button_text": "#CEAE72",
+        "sidebar_text": "#ffffff",
+        "group_bg": "#08162a",
+        "group_text": "#CEAE72",
+        "grid": "#b79f79",
+        "border": "#CEAE72",
+        "secondary": "#112843",
+        "text_muted": "#cbd5e1",
+        "card_shadow": "rgba(0,0,0,0.35)",
+        "nav_bg": "#08162a",
+        "input_bg": "#0d2748",
+        "pie_alt": ["#CEAE72", "#4d6da8", "#8bb0f2", "#8aa16a", "#f2c97d", "#7094d1"],
+    },
+}
+
+
+def get_active_theme() -> dict:
+    preference = st.session_state.get("theme_mode", "system")
+    if preference == "system":
+        system_base = (st.get_option("theme.base") or "light").lower()
+        mode = "dark" if system_base == "dark" else "light"
+    else:
+        mode = preference
+    theme = THEME_CONFIGS[mode].copy()
+    theme["mode"] = mode
+    return theme
+
+
+def apply_theme_css(theme: dict):
+    st.markdown(
+        f"""
     <style>
+    :root {{
+        --primary: {theme['main_bg']};
+        --secondary: {theme['secondary']};
+        --accent-gold: {theme['title']};
+        --bg-main: {theme['main_bg']};
+        --bg-card: {theme['card_bg']};
+        --text-main: {theme['text']};
+        --text-muted: {theme['text_muted']};
+        --border: {theme['border']};
+        --btn-bg: {theme['button_bg']};
+        --btn-text: {theme['button_text']};
+        --group-bg: {theme['group_bg']};
+        --group-text: {theme['group_text']};
+        --grid: {theme['grid']};
+        --sidebar-text: {theme['sidebar_text']};
+        --card-shadow: {theme['card_shadow']};
+        --nav-bg: {theme['nav_bg']};
+        --input-bg: {theme['input_bg']};
+    }}
 
-    :root {
-        --primary:#0b1f3a;
-        --secondary:#1e3a8a;
-        --accent-gold:#CEAE72;
-        --bg-main:#0f172a;
-        --bg-card:#111827;
-        --text-main:#F8FAFC;
-        --text-muted:#94A3B8;
-        --border:#1f2937;
-    }
-
-    html, body, .stApp, [data-testid="stAppViewContainer"] {
+    html, body, .stApp, [data-testid="stAppViewContainer"], [data-testid="stMainBlockContainer"] {{
         background: var(--bg-main) !important;
         color: var(--text-main) !important;
-    }
+    }}
 
-    h1, h2, h3, h4, h5, h6 {
-        color: var(--accent-gold) !important;
-        font-weight: 800;
-    }
-
-    .stat-card, .ata-card {
+    .ata-card, .ata-title-card, .ata-nav-card, .stat-card, .logo-box, .credit-box, .login-wrap {{
         background: var(--bg-card) !important;
-        border: 1px solid var(--border);
-        border-radius: 18px;
-    }
+        border: 1px solid var(--border) !important;
+        border-radius: 16px;
+        box-shadow: 0 10px 22px var(--card-shadow);
+    }}
 
-    .stButton>button {
-        background: var(--secondary);
+    .ata-title-card {{
+        padding: 1rem 1.2rem;
+        margin: 0.2rem 0 1rem 0;
+    }}
+    .ata-title-card .title {{
         color: var(--accent-gold);
-        border-radius: 10px;
-        border: 1px solid var(--border);
-    }
+        font-size: 2.15rem;
+        font-weight: 800;
+        margin: 0;
+    }}
+    .ata-title-card .subtitle {{
+        color: var(--text-main);
+        margin-top: 0.35rem;
+        font-size: 0.98rem;
+    }}
 
-    .stButton>button:hover {
-        background: var(--primary);
-        transition: 0.3s ease;
-    }
+    h1, h2, h3, h4, h5, h6, .credit-line, .ata-hero .t1, .view-detail-title, .view-score {{
+        color: var(--accent-gold) !important;
+    }}
 
-    [data-testid="stSidebar"] {
-        background: var(--bg-card) !important;
+    .stat-card {{
+        min-height: 148px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        text-align: center;
+        padding: 18px;
+    }}
+    .stat-val {{ font-size: 2rem; font-weight: 800; color: var(--accent-gold); }}
+    .stat-label {{ font-size: 1.05rem; color: var(--text-main); }}
+
+    [data-testid="stSidebar"] {{
+        background: var(--bg-main) !important;
         border-right: 1px solid var(--border);
-    }
+    }}
+    [data-testid="stSidebar"] * {{ color: var(--sidebar-text) !important; }}
 
+    .ata-nav-card {{
+        padding: 0.9rem 0.8rem;
+        background: var(--nav-bg) !important;
+        border: 1px solid var(--border) !important;
+        margin-top: 0.8rem;
+        margin-bottom: 0.9rem;
+    }}
+
+    .stButton>button, .stDownloadButton>button, .stForm [data-testid="stFormSubmitButton"]>button {{
+        width: 100%;
+        min-height: 44px;
+        border-radius: 10px;
+        border: 1px solid var(--border) !important;
+        background: var(--btn-bg) !important;
+        color: var(--btn-text) !important;
+        font-weight: 700;
+        padding: 0.5rem 1rem;
+    }}
+    .stButton>button:hover, .stDownloadButton>button:hover, .stForm [data-testid="stFormSubmitButton"]>button:hover {{
+        filter: brightness(1.06);
+    }}
+
+    .styled-table {{ width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 14px; }}
+    .styled-table th {{ text-align:left; padding:12px 15px; background: var(--group-bg); color: var(--group-text); border:1px solid var(--grid); }}
+    .styled-table td {{ padding:10px 15px; border:1px solid var(--grid); color: var(--text-main); }}
+
+    [data-testid="stDataFrame"], [data-testid="stTable"] {{ border: 1px solid var(--border); border-radius: 12px; }}
+    [data-testid="stDataFrame"] * {{ color: var(--text-main); }}
+    [data-testid="stDataEditor"] [role="columnheader"] {{
+        background: var(--group-bg) !important;
+        color: var(--group-text) !important;
+    }}
+    [data-testid="stDataEditor"] [role="gridcell"] {{
+        color: var(--text-main) !important;
+    }}
+
+    .group-title {{
+        background: var(--group-bg);
+        color: var(--group-text);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 0.55rem 0.75rem;
+        margin: 1rem 0 0.5rem 0;
+        font-weight: 700;
+    }}
+
+    .copy-btn {{
+        width:100%;
+        min-height:44px;
+        border-radius:10px;
+        border:1px solid var(--border);
+        background:var(--btn-bg);
+        color:var(--btn-text);
+        font-weight:700;
+        cursor:pointer;
+    }}
+
+    .ata-hero {{
+        padding: 20px;
+        border-radius: 16px;
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        box-shadow: 0 10px 22px var(--card-shadow);
+        margin-bottom: 18px;
+    }}
+    .ata-hero .t2 {{ color: var(--text-main); }}
+
+    .stTextInput input, .stDateInput input, .stSelectbox div[data-baseweb="select"] > div,
+    .stTextArea textarea {{
+        background: var(--input-bg) !important;
+        color: var(--text-main) !important;
+        border: 1px solid var(--border) !important;
+    }}
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
 
 def get_chart_theme() -> dict:
-    dark = st.session_state.get("theme_mode", "light") == "dark"
-    if dark:
-        return {
-            "bg": "#111827",
-            "grid": "#334155",
-            "text": "#ffffff",
-            "primary": "#CEAE72",
-            "accent": "#60a5fa",
-            "fail": "#ef4444",
-            "pass": "#10b981",
-        }
+    theme = get_active_theme()
     return {
-        "bg": "#ffffff",
-        "grid": "#e5e7eb",
-        "text": "#ffffff",
-        "primary": "#1e3a8a",
-        "accent": "#CEAE72",
+        "bg": theme["card_bg"],
+        "grid": theme["grid"],
+        "text": theme["text"],
+        "title": theme["title"],
+        "primary": "#1e3a8a" if theme["mode"] == "light" else "#CEAE72",
+        "accent": "#CEAE72" if theme["mode"] == "light" else "#8bb0f2",
         "fail": "#ef4444",
         "pass": "#10b981",
+        "pie_alt": theme["pie_alt"],
     }
 
 
@@ -211,79 +359,46 @@ def style_chart(ax, theme: dict) -> None:
     for spine in ax.spines.values():
         spine.set_color(theme["grid"])
     ax.tick_params(colors=theme["text"])
-    ax.title.set_color(theme["text"])
+    ax.title.set_color(theme["title"])
     if ax.xaxis.label:
         ax.xaxis.label.set_color(theme["text"])
     if ax.yaxis.label:
         ax.yaxis.label.set_color(theme["text"])
-# -------------------- UI THEME --------------------
-st.markdown(
-    """
+
+
+def apply_base_css() -> None:
+    st.markdown(
+        """
 <style>
-.block-container { padding-top: 1.0rem; font-family: "Candara", "Segoe UI", sans-serif; }
+.block-container { padding-top: 1rem; font-family: "Candara", "Segoe UI", sans-serif; }
 .stApp, .stMarkdown, .stTextInput, .stSelectbox, .stDataEditor, .stButton, .stTable, .stDataFrame {
   font-family: "Candara", "Segoe UI", sans-serif;
 }
-.ata-hero {
-    padding: 28px;
-    border-radius: 22px;
-    background: linear-gradient(
-        135deg,
-        var(--secondary),
-        var(--primary)
-    );
-    box-shadow: 0 18px 45px rgba(0,0,0,0.35);
-    margin-bottom: 28px;
-}
 .ata-hero.left-align { text-align:left; }
-.ata-hero .t1 { font-size:28px; font-weight:900; margin:0; letter-spacing:1px; }
-.ata-hero .t2 { font-size:16px; opacity:.85; margin-top:8px; }
-.stat-card {
-    padding: 24px;
-    border-radius: 18px;
-    backdrop-filter: blur(14px);
-    background: linear-gradient(
-        145deg,
-        rgba(255,255,255,0.06),
-        rgba(255,255,255,0.02)
-    );
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 12px 30px rgba(0,0,0,0.25);
-    transition: all 0.25s ease;
-}
-.stat-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 16px 40px rgba(0,0,0,0.35);
-}
-
-.stat-val { font-size:24px; font-weight:800; }
-.stat-label { font-size:14px; margin-top:5px; }
-.ata-card { border-radius:16px; padding:20px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
-.styled-table { width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }
-.styled-table th { text-align:left; padding:12px 15px; }
-.styled-table td { padding:10px 15px; }
-.credit-line { text-align:left; font-size:12px; margin-top:5px; font-style:italic; font-weight:700; }
-.sidebar-credit { margin-top:12px; }
-.logo-box,
-.credit-box {
-    border-radius: 18px;
-    padding: 16px;
-    backdrop-filter: blur(10px);
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 10px 25px rgba(0,0,0,0.25);
-}
-.view-header h2 { font-weight:800; margin-bottom:12px; }
-.page-title { margin-top:10px; margin-bottom:12px; }
-.login-wrap {max-width:460px; margin:20px auto 10px auto; padding:26px; border:1px solid var(--border); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,0.08);} 
+.login-wrap {max-width:460px; margin:20px auto 10px auto; padding:26px; border-radius:16px;} 
 .login-logo {display:flex; justify-content:center; margin-bottom:12px;} 
 .login-title {text-align:center; font-weight:800; margin-bottom:0;} 
 .login-note {text-align:center; font-size:12px; margin-top:8px;} 
 .login-extra {text-align:center; font-size:12px; margin-top:4px;} 
+.page-spacer { height: 0.4rem; }
 </style>
 """,
-    unsafe_allow_html=True,
-)
+        unsafe_allow_html=True,
+    )
+
+
+def render_title_card(title: str, subtitle: str = "") -> None:
+    sub_html = f"<div class='subtitle'>{subtitle}</div>" if subtitle else ""
+    st.markdown(
+        f"""
+        <div class="ata-title-card">
+            <p class="title">{title}</p>
+            {sub_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
 # -------------------- RUBRIC (SHEET-ALIGNED) --------------------
 ACCURACY_HEADER = "Accuracy of Scoring"
 ACCURACY_SUBPARAMS = [
@@ -638,10 +753,10 @@ def compute_weighted_score(df: pd.DataFrame) -> dict:
         "total_points": total_points,
     }
 # -------------------- EXPORT HELPERS --------------------
-def copy_to_clipboard_button(label: str, text_to_copy: str, key: str) -> None:
+def copy_to_clipboard_button(label: str, text_to_copy: str, key: str, theme: dict) -> None:
     safe_text = text_to_copy.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
     html = f"""
-    <button id="btn-{key}" style="width:100%;padding:10px;background:#0b1f3a;color:white;border:none;border-radius:8px;cursor:pointer;font-weight:bold;">{label}</button>
+    <button id="btn-{key}" style="width:100%;min-height:44px;border-radius:10px;border:1px solid {theme['border']};background:{theme['button_bg']};color:{theme['button_text']};font-weight:700;padding:0.5rem 1rem;cursor:pointer;">{label}</button>
     <script>
       document.getElementById("btn-{key}").onclick = () => {{
         const text = `{safe_text}`;
@@ -651,13 +766,13 @@ def copy_to_clipboard_button(label: str, text_to_copy: str, key: str) -> None:
           new ClipboardItem({{ "text/html": htmlBlob, "text/plain": plainBlob }})
         ]).then(() => {{
           const el = document.getElementById("copystatus-{key}");
-          if(el) el.innerText = "Email copied to clipboard!";
+          if(el) el.innerText = "Copied!";
         }});
       }};
     </script>
     <div id="copystatus-{key}" style="font-family:sans-serif;color:#10b981;font-size:12px;margin-top:5px;text-align:center;"></div>
     """
-    components.html(html, height=70)
+    components.html(html, height=88)
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
 
@@ -968,15 +1083,18 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_heat.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 3. Pass vs Fail Pie Chart
+    pie_figsize = (6, 6)
     pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
     fail_points = summary["Failed Points"].sum() if "Failed Points" in summary.columns else 0
-    fig_pie, axp = plt.subplots(figsize=(6, 4))
+    fig_pie, axp = plt.subplots(figsize=pie_figsize)
     axp.pie(
         [pass_points, fail_points],
         labels=["Pass", "Fail"],
         autopct="%1.1f%%",
         colors=[theme["pass"], theme["fail"]],
         startangle=90,
+        labeldistance=1.2,
+        pctdistance=1.08,
         textprops={"fontsize": 10, "color": theme["text"]},
     )
     axp.set_title("Pass vs Fail Points", fontweight="bold", fontsize=11)
@@ -1063,16 +1181,16 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 10. Audits per Disposition
-    fig_disp, axd = plt.subplots(figsize=(6, 4))
+    fig_disp, axd = plt.subplots(figsize=pie_figsize)
     disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts()
     axd.pie(
         disp_counts.values,
         labels=disp_counts.index,
         autopct="%1.1f%%",
         startangle=90,
-        colors=[theme["primary"], theme["accent"], "#60a5fa", "#34d399", "#f59e0b", "#ef4444"],
-        labeldistance=1.05,
-        pctdistance=0.8,
+        colors=theme["pie_alt"][: len(disp_counts.index)],
+        labeldistance=1.2,
+        pctdistance=1.08,
         textprops={"fontsize": 9, "color": theme["text"]},
     )
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=11)
@@ -1139,7 +1257,7 @@ def clear_login_state(cookie_manager):
     st.session_state.authenticated = False
 
 def render_login(cookie_manager) -> None:
-    mode_class = "dark" if st.session_state.get("theme_mode", "light") == "dark" else "light"
+    mode_class = "dark" if get_active_theme()["mode"] == "dark" else "light"
     st.markdown(
         f"""
         <div class="login-wrap {mode_class}">
@@ -1174,22 +1292,10 @@ def render_login(cookie_manager) -> None:
         else:
             st.error("Invalid credentials")
 def reset_evaluation_form() -> None:
-    for key in [
-        "prefill",
-        "qa_name",
-        "auditor",
-        "eval_date",
-        "audit_date",
-        "call_id",
-        "call_duration",
-        "call_disposition",
-        "reaudit",
-    ]:
-        if key in st.session_state:
-            st.session_state.pop(key, None)
     st.session_state.edit_mode = False
     st.session_state.edit_eval_id = ""
     st.session_state.prefill = {}
+    st.session_state.form_key_id = uuid4().hex
 for key in [
     "edit_mode",
     "edit_eval_id",
@@ -1200,6 +1306,8 @@ for key in [
     "reset_counter",
     "authenticated",
     "remember_me",
+    "theme_mode",
+    "form_key_id",
 ]:
     if key not in st.session_state:
         if key == "prefill":
@@ -1208,7 +1316,10 @@ for key in [
             st.session_state[key] = 0
         elif key in ("authenticated", "remember_me"):
             st.session_state[key] = False
-
+        elif key == "theme_mode":
+            st.session_state[key] = "system"
+        elif key == "form_key_id":
+            st.session_state[key] = uuid4().hex
         else:
             st.session_state[key] = ""
 
@@ -1218,18 +1329,16 @@ if not st.session_state.get("authenticated", False) and cookie_auth == "1":
     st.session_state.authenticated = True
     st.session_state.remember_me = True
 
+active_theme = get_active_theme()
+apply_base_css()
+apply_theme_css(active_theme)
+
 if not st.session_state.get("authenticated", False):
-    apply_theme_css()
     render_login(cookie_manager)
     st.stop()
 if st.session_state.get("goto_nav"):
     st.session_state["nav_radio"] = st.session_state["goto_nav"]
     st.session_state["goto_nav"] = ""
-
-apply_theme_css()
-if st.sidebar.button("🚪 Logout", use_container_width=True):
-    clear_login_state(cookie_manager)
-    st.rerun()
 
 st.sidebar.markdown(
     f"""
@@ -1238,13 +1347,34 @@ st.sidebar.markdown(
       <p class="t2">{APP_NAME}</p>
     </div>
     <div class="logo-box"><img src="{LOGO_URL}"></div>
-    <div class="credit-box sidebar-credit"><div class="credit-line">Designed and built by Mohamed Seddiq</div></div>
     """,
     unsafe_allow_html=True,
 )
-nav = st.sidebar.radio("Navigation", ["Home", "Evaluation", "View", "Dashboard"], key="nav_radio")
+
+with st.sidebar.container(border=False):
+    st.markdown('<div class="ata-nav-card">', unsafe_allow_html=True)
+    theme_choice = st.selectbox(
+        "Theme",
+        ["System", "Light", "Dark"],
+        index={"system": 0, "light": 1, "dark": 2}.get(st.session_state.theme_mode, 0),
+        key="theme_selectbox",
+    )
+    st.session_state.theme_mode = theme_choice.lower()
+    active_theme = get_active_theme()
+    apply_theme_css(active_theme)
+    nav = st.radio("Navigation", ["Home", "Evaluation", "View", "Dashboard"], key="nav_radio")
+    if st.button("🚪 Logout", use_container_width=True):
+        clear_login_state(cookie_manager)
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+st.sidebar.markdown(
+    '<div class="credit-box sidebar-credit"><div class="credit-line">Designed and built by Mohamed Seddiq</div></div>',
+    unsafe_allow_html=True,
+)
 if nav == "Home":
     summary = read_google_summary()
+    render_title_card("Home")
     st.markdown(
         f"""
         <div class="ata-hero left-align">
@@ -1327,12 +1457,7 @@ if nav == "Home":
             hide_index=True,
         )
 elif nav == "Evaluation":
-    st.markdown(
-        '<div class="page-title"><h2>'
-        + ("Edit" if st.session_state.edit_mode else "New")
-        + " Evaluation</h2></div>",
-        unsafe_allow_html=True,
-    )
+    render_title_card(("Edit" if st.session_state.edit_mode else "New") + " Evaluation")
     if st.session_state.get("reset_notice"):
         st.success(st.session_state.reset_notice)
         st.session_state.reset_notice = ""
@@ -1341,35 +1466,36 @@ elif nav == "Evaluation":
         df_all = pre["details_df"].copy()
     df_all = normalize_details_df(df_all)
     df_all["Comment"] = df_all.get("Comment", "").fillna("")
-    with st.form("eval_form"):
+    form_token = st.session_state.form_key_id
+    with st.form(f"eval_form_{form_token}"):
         c1, c2, c3, c4 = st.columns(4)
-        qa_name = c1.text_input("QA Name", value=pre.get("qa_name", ""), key="qa_name")
-        auditor = c1.text_input("Auditor", value=pre.get("auditor", ""), key="auditor")
+        qa_name = c1.text_input("QA Name", value=pre.get("qa_name", ""), key=f"qa_name_{form_token}")
+        auditor = c1.text_input("Auditor", value=pre.get("auditor", ""), key=f"auditor_{form_token}")
         eval_date = c2.date_input(
             "Eval Date",
             value=pre.get("evaluation_date", date.today()),
             format="DD/MM/YYYY",
-            key="eval_date",
+            key=f"eval_date_{form_token}",
         )
         audit_date = c2.date_input(
             "Audit Date",
             value=pre.get("audit_date", date.today()),
             format="DD/MM/YYYY",
-            key="audit_date",
+            key=f"audit_date_{form_token}",
         )
-        call_id = c3.text_input("Call ID", value=pre.get("call_id", ""), key="call_id")
-        call_dur = c3.text_input("Duration", value=pre.get("call_duration", ""), key="call_duration")
-        call_disp = c4.text_input("Disposition", value=pre.get("call_disposition", ""), key="call_disposition")
+        call_id = c3.text_input("Call ID", value=pre.get("call_id", ""), key=f"call_id_{form_token}")
+        call_dur = c3.text_input("Duration", value=pre.get("call_duration", ""), key=f"call_duration_{form_token}")
+        call_disp = c4.text_input("Disposition", value=pre.get("call_disposition", ""), key=f"call_disposition_{form_token}")
         reaudit = c4.selectbox(
             "Reaudit",
             ["No", "Yes"],
             index=0 if pre.get("reaudit") != "Yes" else 1,
-            key="reaudit",
+            key=f"reaudit_{form_token}",
         )
         df_acc = df_all[df_all["Group"] == "ACCURACY_SUB"].copy()
         df_qual = df_all[df_all["Group"] == "EVAL_QUALITY"].copy()
-        st.markdown("### Accuracy of Scoring")
-        editor_key = f"ed_{st.session_state.reset_counter}"
+        st.markdown("<div class='group-title'>Accuracy of Scoring</div>", unsafe_allow_html=True)
+        editor_key = f"ed_{form_token}"
         ed_acc = st.data_editor(
             df_acc[["Parameter", "Result", "Comment"]],
             use_container_width=True,
@@ -1383,7 +1509,7 @@ elif nav == "Evaluation":
                 "Comment": st.column_config.TextColumn(),
             },
         )
-        st.markdown("### Evaluation Quality")
+        st.markdown("<div class='group-title'>Evaluation Quality</div>", unsafe_allow_html=True)
         ed_qual = st.data_editor(
             df_qual[["Parameter", "Result", "Comment"]],
             use_container_width=True,
@@ -1397,20 +1523,17 @@ elif nav == "Evaluation":
                 "Comment": st.column_config.TextColumn(),
             },
         )
-        save_clicked = st.form_submit_button("💾 Save Evaluation")
-        reset_clicked = st.form_submit_button("🔄 Reset Form")
-        cancel_clicked = st.form_submit_button("↩️ Cancel Edit") if st.session_state.edit_mode else False
+        action_cols = st.columns(3 if st.session_state.edit_mode else 2)
+        with action_cols[0]:
+            save_clicked = st.form_submit_button("💾 Save Evaluation", use_container_width=True)
+        with action_cols[1]:
+            reset_clicked = st.form_submit_button("🔄 Reset Form", use_container_width=True)
+        cancel_clicked = False
+        if st.session_state.edit_mode:
+            with action_cols[2]:
+                cancel_clicked = st.form_submit_button("↩️ Cancel Edit", use_container_width=True)
         if reset_clicked:
             reset_evaluation_form()
-            st.session_state.reset_counter += 1
-            st.session_state.qa_name = ""
-            st.session_state.auditor = ""
-            st.session_state.eval_date = date.today()
-            st.session_state.audit_date = date.today()
-            st.session_state.call_id = ""
-            st.session_state.call_duration = ""
-            st.session_state.call_disposition = ""
-            st.session_state.reaudit = "No"
             st.session_state.reset_notice = "Form reset."
             st.rerun()
         if cancel_clicked:
@@ -1453,13 +1576,10 @@ elif nav == "Evaluation":
             upsert_google_sheet(record)
             reset_evaluation_form()
             st.session_state.last_saved_id = eval_id
-            st.session_state.goto_nav = "View"
+            st.session_state.reset_notice = f"Saved Evaluation ID: {eval_id}. Form reset for a new entry."
             st.rerun()
 elif nav == "View":
-    st.markdown(
-        '<div class="page-title"><h2>Audit Records Explorer</h2></div>',
-        unsafe_allow_html=True,
-    )
+    render_title_card("Audit Records Explorer")
     summary = read_google_summary()
     details = read_google_details()
     if summary.empty:
@@ -1523,20 +1643,19 @@ elif nav == "View":
             st.markdown(
                 f"""
                 <div class="ata-card">
-                  <h3 style="margin-top:0; color:#0b1f3a;">Evaluation Details: {sel_id}</h3>
+                  <h3 class="view-detail-title" style="margin-top:0;">Evaluation Details: {sel_id}</h3>
                   <table class="styled-table">
                     <tr><td><b>Evaluation ID:</b> {sel_id}</td><td><b>Evaluation Date:</b> {eval_date_display}</td></tr>
                     <tr><td><b>QA Name:</b> {row['QA Name']}</td><td><b>Auditor Name:</b> {row['Auditor']}</td></tr>
                     <tr><td><b>Audit Date:</b> {audit_date_display}</td><td><b>Call ID:</b> {row['Call ID']}</td></tr>
                     <tr><td><b>Call Duration:</b> {row['Call Duration']}</td><td><b>Call Disposition:</b> {row['Call Disposition']}</td></tr>
-                    <tr><td><b>Overall Score:</b> <span style="font-size:18px;color:#0b1f3a;font-weight:bold;">{row['Overall Score %']:.2f}%</span></td><td><b>Reaudit:</b> {row['Reaudit']}</td></tr>
+                    <tr><td><b>Overall Score:</b> <span class="view-score" style="font-size:18px;font-weight:bold;">{row['Overall Score %']:.2f}%</span></td><td><b>Reaudit:</b> {row['Reaudit']}</td></tr>
                     <tr><td colspan="2"><b>Email Subject:</b> {email_subject}</td></tr>
                   </table>
                 </div>
                 """,
                 unsafe_allow_html=True,
             )
-            c1, c2, c3, c4 = st.columns(4)
             rec = {
                 "evaluation_id": sel_id,
                 "qa_name": row["QA Name"],
@@ -1550,7 +1669,16 @@ elif nav == "View":
                 "overall_score": row["Overall Score %"],
                 "details": details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)],
             }
-            with c1:
+            export_buf = io.BytesIO()
+            with pd.ExcelWriter(export_buf, engine="openpyxl") as writer:
+                pd.DataFrame([row]).to_excel(writer, sheet_name="Summary", index=False)
+                details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)].to_excel(
+                    writer, sheet_name="Details", index=False
+                )
+            export_buf.seek(0)
+
+            top_actions = st.columns(3)
+            with top_actions[0]:
                 st.download_button(
                     "📄 Download PDF",
                     pdf_evaluation(rec),
@@ -1558,10 +1686,13 @@ elif nav == "View":
                     "application/pdf",
                     use_container_width=True,
                 )
-            with c2:
-                copy_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}")
-                copy_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}")
-            with c3:
+            with top_actions[1]:
+                copy_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}", active_theme)
+            with top_actions[2]:
+                copy_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
+
+            bottom_actions = st.columns(3)
+            with bottom_actions[0]:
                 if st.button("✏️ Edit Record", use_container_width=True):
                     st.session_state.edit_mode = True
                     st.session_state.edit_eval_id = sel_id
@@ -1578,36 +1709,27 @@ elif nav == "View":
                     }
                     st.session_state.goto_nav = "Evaluation"
                     st.rerun()
-            with c4:
+            with bottom_actions[1]:
                 if st.button("🗑️ Delete Record", use_container_width=True):
                     if delete_evaluation(sel_id):
                         st.success(f"Deleted {sel_id}")
                         st.rerun()
-            export_buf = io.BytesIO()
-            with pd.ExcelWriter(export_buf, engine="openpyxl") as writer:
-                pd.DataFrame([row]).to_excel(writer, sheet_name="Summary", index=False)
-                details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)].to_excel(
-                    writer, sheet_name="Details", index=False
+            with bottom_actions[2]:
+                st.download_button(
+                    "📥 Export Selected to Excel",
+                    export_buf,
+                    f"ATA_{sel_id}.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
                 )
-            export_buf.seek(0)
-            st.download_button(
-                "📥 Export Selected to Excel",
-                export_buf,
-                f"ATA_{sel_id}.xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-            st.markdown("### Parameter Breakdown")
+            st.markdown("<div class='group-title'>Parameter Breakdown</div>", unsafe_allow_html=True)
             det = details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)]
             if not det.empty:
                 for grp in ["ACCURACY_SUB", "EVAL_QUALITY"]:
                     with st.expander(grp.replace("_", " ").title(), expanded=True):
                         st.table(det[det["Group"] == grp][["Parameter", "Result", "Comment"]])
 elif nav == "Dashboard":
-    st.markdown(
-        '<div class="ata-hero left-align"><p class="t1">Performance Dashboard</p><p class="t2">Visualizing quality trends and failure distributions.</p></div>',
-        unsafe_allow_html=True,
-    )
+    render_title_card("Performance Dashboard", "Visualizing quality trends and failure distributions.")
     summary_all = read_google_summary()
     details_all = read_google_details()
     if not summary_all.empty and "Evaluation Date" in summary_all.columns:
