@@ -241,7 +241,7 @@ def apply_theme_css(theme: dict):
     .ata-hero {{
         padding: 30px;
         border-radius: 16px;
-        background: var(--bg-card);
+        background: var(--bg-main);
         border: 1px solid var(--border);
         box-shadow: 0 10px 22px var(--card-shadow);
         margin-bottom: 18px;
