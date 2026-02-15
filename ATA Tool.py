@@ -265,10 +265,10 @@ def apply_theme_css(theme: dict):
         transition: all 0.25s ease;
         cursor: pointer;
     }}
-    .action-card {{transition: all 0.25s ease;cursor: pointer;}}
-    .action-card:hover {{
-    transform: translateY(-6px);
-    box-shadow: 0 14px 30px {stat_hover_shadow};
+    .action-card [data-testid="stButton"] > button {{ transition: all 0.25s ease; cursor: pointer; }}
+    .stat-card:hover, .action-card [data-testid="stButton"] > button:hover {{
+        transform: translateY(-6px);
+        box-shadow: 0 14px 30px {stat_hover_shadow};
     }}
 
     .stat-val {{ font-size: 2rem; font-weight: 800; color: var(--accent-gold); }}
@@ -284,11 +284,13 @@ def apply_theme_css(theme: dict):
     .stButton>button, .stDownloadButton>button, .stForm [data-testid="stFormSubmitButton"]>button {{
         width: 100%; min-height: 44px; border-radius: 10px; border: 1px solid var(--border) !important;
         background: var(--btn-bg) !important; color: var(--btn-text) !important; font-weight: 700; padding: 0.5rem 1rem;
+        transition: all 0.25s ease;
+        cursor: pointer;
     }}
 
     .eval-action-row [data-testid="stFormSubmitButton"] > button {{ color: {eval_btn_text} !important; }}
 
-    .stButton>button:hover, .stDownloadButton>button:hover, .stForm [data-testid="stFormSubmitButton"]>button:hover {{ filter: brightness(1.06); }}
+    .stButton>button:hover, .stDownloadButton>button:hover, .stForm [data-testid="stFormSubmitButton"]>button:hover { transform: translateY(-4px); box-shadow: 0 12px 24px {stat_hover_shadow}; filter: brightness(1.06); }
 
     .dashboard-action-btn [data-testid="stDownloadButton"] > button {{ transition: all 0.25s ease; cursor: pointer; }}
     .dashboard-action-btn [data-testid="stDownloadButton"] > button:hover {{ transform: translateY(-5px); box-shadow: 0 12px 28px {dashboard_hover_shadow}; }}
@@ -298,11 +300,15 @@ def apply_theme_css(theme: dict):
     .styled-table th {{ text-align:left; padding:12px 15px; background: var(--group-bg); color: var(--group-text); border:1px solid var(--grid); }}
     .styled-table td {{ padding:10px 15px; border:1px solid var(--grid); color: var(--text-main); }}
     .eval-details-table {{ width:100%; border-collapse:collapse; margin:10px 0; font-size:14px; }}
-    .eval-details-table th, .eval-details-table td {{ padding:10px 12px; }}
-    .summary-records-table {{ width:100%; border-collapse:collapse; border:1px solid var(--border); }}
-    .summary-records-table th {{ background:#112843; color:#F2D48A; font-weight:600; border:1px solid var(--border); padding:10px 12px; }}
-    .summary-records-table td {{ background:var(--bg-card); color:#FFFFFF; border:1px solid var(--border); padding:10px 12px; }}
-    .summary-records-table tr:hover td {{ background:#132d4a; }}
+    .eval-details-table th, .eval-details-table td {{ padding:10px 12px; border:1px solid var(--border) !important; }}
+    .summary-records-table { width:100%; border-collapse:collapse; border:1px solid var(--border); }
+    .summary-records-table th { background:#112843; color:#F2D48A; font-weight:600; border:1px solid var(--border); padding:10px 12px; }
+    .summary-records-table td { background:var(--bg-card); color:#FFFFFF; border:1px solid var(--border); padding:10px 12px; }
+    .summary-records-table tr:hover td { background:#132d4a; }
+
+    .dark-breakdown-table { width:100%; border-collapse:collapse; border:1px solid var(--border); }
+    .dark-breakdown-table th { background:#112843; color:#F5E6B3; border:1px solid var(--border); padding:10px 12px; text-align:left; }
+    .dark-breakdown-table td { background:var(--bg-card); color:#E5E7EB; border:1px solid var(--border); padding:9px 12px; }
 
     [data-testid="stDataFrame"], [data-testid="stTable"] {{ border: 1px solid var(--border); border-radius: 12px; }}
     [data-testid="stDataFrame"] * {{ color: {table_body_text} !important; }}
@@ -317,7 +323,7 @@ def apply_theme_css(theme: dict):
     [data-testid="stExpander"] summary p {{ color: {expander_color} !important; font-weight: 700 !important; }}
 
     .login-logo-card {{
-        background: linear-gradient(135deg, #F6F0E1 0%, #E6D5B8 100%);
+        background: #0b1f3a;
         border: 2px solid #C9A227;
         border-radius: 18px;
         box-shadow: 0 8px 20px rgba(0,0,0,0.08);
@@ -373,7 +379,7 @@ def apply_base_css() -> None:
   font-family: "Candara", "Segoe UI", sans-serif;
 }
 .ata-hero.left-align { text-align:left; }
-.login-wrap {max-width:460px; margin:20px auto 10px auto; padding:26px; border-radius:16px;} 
+
 .login-logo {display:flex; justify-content:center; margin-bottom:12px;} 
 .login-title {text-align:center; font-weight:800; margin-bottom:0;} 
 .login-note {text-align:center; font-size:12px; margin-top:8px;} 
@@ -754,8 +760,11 @@ def compute_weighted_score(df: pd.DataFrame) -> dict:
 def copy_to_clipboard_button(label: str, text_to_copy: str, key: str, theme: dict) -> None:
     safe_text = text_to_copy.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
     html = f"""
-    <button id="btn-{key}" style="width:100%;min-height:44px;border-radius:10px;border:1px solid {theme['border']};background:{theme['button_bg']};color:{theme['button_text']};font-weight:700;padding:0.5rem 1rem;cursor:pointer;">{label}</button>
+    <button id="btn-{key}" style="width:100%;height:44px;border-radius:10px;border:1px solid {theme['border']};background:{theme['button_bg']};color:{theme['button_text']};font-weight:700;padding:0.5rem 1rem;cursor:pointer;transition:all 0.25s ease;">{label}</button>
     <script>
+      const btn = document.getElementById("btn-{key}");
+      btn.onmouseover = () => {{ btn.style.transform = "translateY(-4px)"; btn.style.boxShadow = "0 12px 24px rgba(0,0,0,0.20)"; }};
+      btn.onmouseout = () => {{ btn.style.transform = "translateY(0px)"; btn.style.boxShadow = "none"; }};
       document.getElementById("btn-{key}").onclick = () => {{
         const text = `{safe_text}`;
         const htmlBlob = new Blob([text], {{ type: "text/html" }});
@@ -1095,11 +1104,13 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         radius=0.9,
         labeldistance=1.15,
         pctdistance=0.85,
-        wedgeprops={"edgecolor": theme["title"], "linewidth": 1.5},
+        wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
         textprops={"color": theme["text"], "fontsize": 12, "weight": "medium"},
     )
     axp.set_title("Pass vs Fail Points", fontweight="bold", fontsize=12)
     axp.set_aspect("equal")
+    axp.set_xlim(-1.25, 1.25)
+    axp.set_ylim(-1.25, 1.25)
     axp.grid(False)
     style_chart(axp, theme)
     fig_pie.patch.set_facecolor(theme["bg"])
@@ -1194,11 +1205,13 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         radius=0.9,
         labeldistance=1.15,
         pctdistance=0.85,
-        wedgeprops={"edgecolor": theme["title"], "linewidth": 1.5},
+        wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
         textprops={"color": theme["text"], "fontsize": 12, "weight": "medium"},
     )
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=12)
     axd.set_aspect("equal")
+    axd.set_xlim(-1.25, 1.25)
+    axd.set_ylim(-1.25, 1.25)
     axd.grid(False)
     style_chart(axd, theme)
     fig_disp.patch.set_facecolor(theme["bg"])
@@ -1716,7 +1729,7 @@ elif nav == "View":
                 )
             export_buf.seek(0)
 
-            top_actions = st.columns(3)
+            top_actions = st.columns([1,1,1], gap="medium")
             with top_actions[0]:
                 st.download_button(
                     "📄 Download PDF",
@@ -1730,7 +1743,7 @@ elif nav == "View":
             with top_actions[2]:
                 copy_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
 
-            bottom_actions = st.columns(3)
+            bottom_actions = st.columns([1,1,1], gap="medium")
             with bottom_actions[0]:
                 if st.button("✏️ Edit Record", use_container_width=True):
                     st.session_state.edit_mode = True
@@ -1766,7 +1779,11 @@ elif nav == "View":
             if not det.empty:
                 for grp in ["ACCURACY_SUB", "EVAL_QUALITY"]:
                     with st.expander(grp.replace("_", " ").title(), expanded=True):
-                        st.table(det[det["Group"] == grp][["Parameter", "Result", "Comment"]])
+                        grp_df = det[det["Group"] == grp][["Parameter", "Result", "Comment"]].copy()
+                        if active_theme["mode"] == "dark":
+                            st.markdown(grp_df.to_html(index=False, classes="dark-breakdown-table", border=0), unsafe_allow_html=True)
+                        else:
+                            st.table(grp_df)
 elif nav == "Dashboard":
     render_title_card("Performance Dashboard", "Visualizing quality trends and failure distributions.")
     summary_all = read_google_summary()
