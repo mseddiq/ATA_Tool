@@ -695,7 +695,7 @@ def email_html_inline(record: dict) -> str:
     det = record["details"]
     return f"""
     <div style="font-family:sans-serif;max-width:800px;border:1px solid #eee;padding:20px;border-radius:15px;">
-        <div style="background:#0b1f3a;color:white;padding:15px;border-radius:10px;margin-bottom:20px;">
+        <div style="background:#F5F5DC;color:white;padding:15px;border-radius:10px;margin-bottom:20px;">
             <h2 style="margin:0;">{DAMAC_TITLE} | ATA Evaluation</h2>
             <p style="margin:5px 0 0 0;opacity:0.8;">{DAMAC_SUB1} | {DAMAC_SUB2}</p>
         </div>
@@ -1727,6 +1727,7 @@ elif nav == "Dashboard":
                         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         use_container_width=True,
                     )
+
 
 
 
