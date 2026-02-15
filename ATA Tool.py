@@ -1095,8 +1095,8 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         radius=0.9,
         labeldistance=1.15,
         pctdistance=0.85,
-        wedgeprops={{"edgecolor = theme["accent_gold"], "linewidth": 1.5}},
-        textprops={{"color": theme["text"], "fontsize": 12, "weight": "medium"}},
+        wedgeprops={"edgecolor": theme["title"], "linewidth": 1.5},
+        textprops={"color": theme["text"], "fontsize": 12, "weight": "medium"},
     )
     axp.set_title("Pass vs Fail Points", fontweight="bold", fontsize=12)
     axp.set_aspect("equal")
@@ -1194,7 +1194,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         radius=0.9,
         labeldistance=1.15,
         pctdistance=0.85,
-        wedgeprops={"edgecolor = theme["accent_gold"], "linewidth": 1.5},
+        wedgeprops={"edgecolor": theme["title"], "linewidth": 1.5},
         textprops={"color": theme["text"], "fontsize": 12, "weight": "medium"},
     )
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=12)
