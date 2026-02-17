@@ -1270,10 +1270,32 @@ def dashboard_pdf(figures, title="ATA Dashboard") -> bytes:
     return bytes(out) if isinstance(out, (bytes, bytearray)) else out.encode("latin-1")
 def dashboard_ppt(figures, title="ATA Dashboard") -> bytes:
     prs = Presentation()
+    slide_w = prs.slide_width
+    slide_h = prs.slide_height
+    margin_x = Inches(0.35)
+    margin_y = Inches(0.35)
+    max_w = slide_w - (2 * margin_x)
+    max_h = slide_h - (2 * margin_y)
+
     for fig in figures:
         slide = prs.slides.add_slide(prs.slide_layouts[6])
         img_bytes = fig_to_png_bytes(fig)
-        slide.shapes.add_picture(io.BytesIO(img_bytes), Inches(0.5), Inches(1), width=Inches(9))
+
+        fig_w, fig_h = fig.get_size_inches()
+        fig_aspect = fig_w / fig_h if fig_h else 1.0
+        box_aspect = max_w / max_h if max_h else 1.0
+
+        if fig_aspect >= box_aspect:
+            pic_w = max_w
+            pic_h = int(max_w / fig_aspect)
+        else:
+            pic_h = max_h
+            pic_w = int(max_h * fig_aspect)
+
+        x = int((slide_w - pic_w) / 2)
+        y = int((slide_h - pic_h) / 2)
+        slide.shapes.add_picture(io.BytesIO(img_bytes), x, y, width=pic_w, height=pic_h)
+
     out = io.BytesIO()
     prs.save(out)
     return out.getvalue()
