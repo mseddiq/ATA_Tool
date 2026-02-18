@@ -21,6 +21,75 @@ from pptx import Presentation
 from pptx.util import Inches
 # -------------------- APP CONFIG --------------------
 st.set_page_config(page_title="DAMAC | ATA Tool", layout="wide")
+
+
+def secure_authentication_gate() -> None:
+    """Secure login gate using Streamlit secrets with lockout/cooldown."""
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if "login_attempts" not in st.session_state:
+        st.session_state.login_attempts = 0
+    if "lockout_until" not in st.session_state:
+        st.session_state.lockout_until = None
+
+    if st.session_state.authenticated:
+        return
+
+    expected_username = st.secrets["auth"]["username"]
+    expected_password = st.secrets["auth"]["password"]
+
+    now_utc = datetime.utcnow()
+    lockout_until = st.session_state.lockout_until
+    locked = bool(lockout_until and now_utc < lockout_until)
+    remaining = int((lockout_until - now_utc).total_seconds()) if locked else 0
+
+    st.markdown(
+        f"""
+        <div class="login-form-shell">
+            <div class="login-logo-card">
+                <div class="login-logo"><img src="{LOGIN_LOGO_URL}" style="max-width:90%;height:auto;"></div>
+                <h3 class="login-title">Welcome To ATA Tool</h3>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    left, center, right = st.columns([1, 2, 1])
+    with center:
+        st.markdown('<div class="login-form-shell">', unsafe_allow_html=True)
+        with st.form("secure_login_form"):
+            username = st.text_input("User Name", placeholder="Enter username")
+            password = st.text_input("Password", type="password", placeholder="Enter password")
+            submitted = st.form_submit_button("Login", use_container_width=True, disabled=locked)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    if locked:
+        st.error(f"Too many failed attempts. Please wait {remaining} seconds before trying again.")
+
+    st.markdown(
+        "<div class='login-extra'>This App was created for quality activity purposes.</div>",
+        unsafe_allow_html=True,
+    )
+
+    if submitted and not locked:
+        if username == expected_username and password == expected_password:
+            st.session_state.authenticated = True
+            st.session_state.login_attempts = 0
+            st.session_state.lockout_until = None
+            st.rerun()
+        else:
+            st.session_state.login_attempts += 1
+            if st.session_state.login_attempts >= 5:
+                st.session_state.lockout_until = datetime.utcnow() + pd.Timedelta(seconds=60)
+                st.session_state.login_attempts = 0
+                st.error("Too many failed attempts. Locked for 60 seconds.")
+            else:
+                attempts_left = 5 - st.session_state.login_attempts
+                st.error(f"Invalid credentials. {attempts_left} attempt(s) left before lockout.")
+
+    st.stop()
+
 def get_data_dir() -> Path:
     if getattr(sys, "frozen", False):
         base = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
@@ -1300,8 +1369,6 @@ def dashboard_ppt(figures, title="ATA Dashboard") -> bytes:
     prs.save(out)
     return out.getvalue()
 # -------------------- MAIN APP --------------------
-LOGIN_USER = "Quality"
-LOGIN_PASSWORD = "Damac#2026#"
 
 def clear_login_state(cookie_manager):
     try:
@@ -1314,48 +1381,6 @@ def clear_login_state(cookie_manager):
         st.session_state.pop(key, None)
 
     st.session_state.authenticated = False
-
-def render_login(cookie_manager) -> None:
-    st.markdown(
-        f"""
-        <div class="login-form-shell">
-            <div class="login-logo-card">
-                <div class="login-logo"><img src="{LOGIN_LOGO_URL}" style="max-width:90%;height:auto;"></div>
-                <h3 class="login-title">Welcome To ATA Tool</h3>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    left, center, right = st.columns([1, 2, 1])
-    with center:
-        st.markdown('<div class="login-form-shell">', unsafe_allow_html=True)
-        with st.form("login_form"):
-            username = st.text_input("User Name", placeholder="Enter username")
-            password = st.text_input("Password", type="password", placeholder="Enter password")
-            remember_me = st.checkbox("Remember me")
-            submitted = st.form_submit_button("Login", use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
-
-    body = f"User Name: {username or '(not provided)'}\nPassword: {password or '(not provided)'}"
-    forgot_mailto = "mailto:Mohamed.Seddiq@damacgroup.com?subject=" + quote("Credentials Request") + "&body=" + quote(body)
-    st.markdown(
-        f"<div class='login-note'>Forget Credentials: <a href='{forgot_mailto}'>click here</a></div>"
-        "<div class='login-extra'>This App was created for quality activity purposes.</div>",
-        unsafe_allow_html=True,
-    )
-    if submitted:
-        if username == LOGIN_USER and password == LOGIN_PASSWORD:
-            st.session_state.authenticated = True
-            st.session_state.remember_me = remember_me
-            if remember_me:
-                cookie_manager.set(COOKIE_AUTH_KEY, "1", expires_at=cookie_expiry())
-            else:
-                st.success("Login successful")
-            st.rerun()
-        else:
-            st.error("Invalid credentials")
 
 def reset_evaluation_form() -> None:
     st.session_state.edit_mode = False
@@ -1371,7 +1396,6 @@ for key in [
     "reset_notice",
     "reset_counter",
     "authenticated",
-    "remember_me",
     "theme_mode",
     "form_key_id",
 ]:
@@ -1380,7 +1404,7 @@ for key in [
             st.session_state[key] = {}
         elif key == "reset_counter":
             st.session_state[key] = 0
-        elif key in ("authenticated", "remember_me"):
+        elif key == "authenticated":
             st.session_state[key] = False
         elif key == "theme_mode":
             st.session_state[key] = "system"
@@ -1390,18 +1414,10 @@ for key in [
             st.session_state[key] = ""
 
 cookie_manager = stx.CookieManager(key="ata_cookie_manager")
-cookie_auth = cookie_manager.get(COOKIE_AUTH_KEY)
-if not st.session_state.get("authenticated", False) and cookie_auth == "1":
-    st.session_state.authenticated = True
-    st.session_state.remember_me = True
-
 active_theme = get_active_theme()
 apply_base_css()
 apply_theme_css(active_theme)
-
-if not st.session_state.get("authenticated", False):
-    render_login(cookie_manager)
-    st.stop()
+secure_authentication_gate()
 if st.session_state.get("goto_nav"):
     st.session_state["nav_radio"] = st.session_state["goto_nav"]
     st.session_state["goto_nav"] = ""
