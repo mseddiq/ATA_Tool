@@ -1544,7 +1544,11 @@ if nav == "Home":
         recent = summary.sort_values("Evaluation Date", ascending=False).head(3).copy()
         recent["Evaluation Date"] = recent["Evaluation Date"].apply(format_date)
         recent["Audit Date"] = recent["Audit Date"].apply(format_date)
-        recent["Overall Score %"] = recent["Overall Score %"].map("{:.2f}%".format)
+        recent["Overall Score %"] = (
+            pd.to_numeric(recent["Overall Score %"], errors="coerce")
+            .fillna(0)
+            .map("{:.2f}%".format)
+        )
         st.dataframe(
             recent[
                 [
@@ -1716,7 +1720,11 @@ elif nav == "View":
             display_df.insert(0, "S.No", range(1, len(display_df) + 1))
             display_df["Evaluation Date"] = display_df["Evaluation Date"].apply(format_date)
             display_df["Audit Date"] = display_df["Audit Date"].apply(format_date)
-            display_df["Overall Score %"] = display_df["Overall Score %"].map("{:.2f}%".format)
+            display_df["Overall Score %"] = (
+                pd.to_numeric(display_df["Overall Score %"], errors="coerce")
+                .fillna(0)
+                .map("{:.2f}%".format)
+            )
             summary_cols = [
                 "S.No",
                 "Evaluation ID",
