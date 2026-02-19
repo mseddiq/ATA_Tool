@@ -385,12 +385,12 @@ def apply_theme_css(theme: dict):
 
     .eval-action-row [data-testid="stFormSubmitButton"] > button {{ color: {eval_btn_text} !important; }}
 
-    .action-card {
+    .action-card {{
         width: 100%;
         height: 60px;
         display: flex;
         align-items: center;
-    }
+    }}
 
     .stButton>button:hover, .stDownloadButton>button:hover, .stForm [data-testid="stFormSubmitButton"]>button:hover {{ transform: translateY(-4px); box-shadow: 0 12px 24px {stat_hover_shadow}; filter: brightness(1.06); }}
 
