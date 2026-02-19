@@ -856,7 +856,6 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
     js = f"""
     <style>
       html, body {{ margin:0; padding:0; background:transparent; }}
-      #wrap-{key} {{ width:100%; }}
       #btn-{key} {{
         width:100%;
         height:44px;
@@ -867,17 +866,19 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         font-weight:700;
         padding:0.5rem 1rem;
         cursor:pointer;
-        transition:all 0.25s ease;
       }}
-      #btn-{key}:hover {{ transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.20); }}
-      #status-{key} {{ font-family:sans-serif;color:#10b981;font-size:12px;margin-top:4px;text-align:center; }}
+      #status-{key} {{
+        font-family:sans-serif;
+        font-size:12px;
+        margin-top:4px;
+        text-align:center;
+        color:#10b981;
+      }}
       #status-{key}.err {{ color:#ef4444; }}
     </style>
 
-    <div id="wrap-{key}">
-      <button id="btn-{key}" type="button">{label}</button>
-      <div id="status-{key}"></div>
-    </div>
+    <button id="btn-{key}" type="button">{label}</button>
+    <div id="status-{key}"></div>
 
     <script>
       const b64 = "{html_b64}";
@@ -889,39 +890,45 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         return new TextDecoder("utf-8").decode(bytes);
       }}
 
-      async function copyHtml() {{
+      function copyRichHTML() {{
         const html = b64ToUtf8(b64);
-        const tmp = document.createElement("div");
-        tmp.innerHTML = html;
-        const plain = (tmp.innerText || tmp.textContent || "").trim();
+
+        const container = document.createElement("div");
+        container.innerHTML = html;
+        container.contentEditable = true;
+        container.style.position = "fixed";
+        container.style.left = "-9999px";
+        container.style.top = "0";
+        document.body.appendChild(container);
+
+        const range = document.createRange();
+        range.selectNodeContents(container);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
 
         try {{
-          if (navigator.clipboard && window.ClipboardItem) {{
-            const item = new ClipboardItem({{
-              "text/html": new Blob([html], {{ type: "text/html" }}),
-              "text/plain": new Blob([plain], {{ type: "text/plain" }})
-            }});
-            await navigator.clipboard.write([item]);
+          const successful = document.execCommand("copy");
+          if (successful) {{
             statusEl.innerText = "Copied (HTML)";
             statusEl.className = "";
-            return;
+          }} else {{
+            throw new Error("Copy failed");
           }}
-        }} catch (e) {{}}
-
-        try {{
-          await navigator.clipboard.writeText(plain);
-          statusEl.innerText = "Copied (plain text)";
-          statusEl.className = "";
-        }} catch (e) {{
+        }} catch (err) {{
           statusEl.innerText = "Copy blocked by browser";
           statusEl.className = "err";
         }}
+
+        selection.removeAllRanges();
+        document.body.removeChild(container);
       }}
 
-      document.getElementById("btn-{key}").addEventListener("click", copyHtml);
+      document.getElementById("btn-{key}").addEventListener("click", copyRichHTML);
     </script>
     """
-    components.html(js, height=70)
+
+    components.html(js, height=75)
 
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
