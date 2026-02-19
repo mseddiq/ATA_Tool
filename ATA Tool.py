@@ -1103,7 +1103,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         if col in summary.columns:
             summary[col] = pd.to_numeric(summary[col], errors="coerce").fillna(0)
     summary["Evaluation Date"] = pd.to_datetime(summary.get("Evaluation Date"), errors="coerce")
-    summary["Month"] = summary["Evaluation Date"].dt.to_period("M").astype(str)
+    summary["Month"] = summary["Evaluation Date"].dt.to_period("M")
     summary["Failure Rate"] = summary.apply(
         lambda r: (r["Failed Points"] / r["Total Points"]) if r["Total Points"] else 0,
         axis=1,
@@ -1231,11 +1231,17 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     plt.tight_layout()
     # 6. Score per Month
     fig_score_month, axsm = plt.subplots(figsize=(6, 4))
-    score_by_month = summary.groupby("Month")["Overall Score %"].mean().sort_index()
-    score_month_labels = (
-        pd.to_datetime(score_by_month.index.astype(str), errors="coerce")
-        .strftime("%b-%y")
+    score_by_month = (
+        summary
+        .assign(Month=pd.to_datetime(summary["Evaluation Date"], errors="coerce").dt.to_period("M"))
+        .groupby("Month")["Overall Score %"]
+        .mean()
+        .sort_index()
     )
+    score_month_labels = [
+        m.strftime("%b-%y") if pd.notna(m) else ""
+        for m in score_by_month.index.to_timestamp()
+    ]
     axsm.bar(score_month_labels, score_by_month.values, color=theme["primary"])
     axsm.set_title("Average Score by Month (%)", fontweight="bold", fontsize=11)
     axsm.tick_params(axis="x", rotation=20)
@@ -1256,11 +1262,17 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     plt.tight_layout()
     # 8. Audits per Month
     fig_audit_month, axam = plt.subplots(figsize=(6, 4))
-    audits_by_month = summary.groupby("Month").size().sort_index()
-    audit_month_labels = (
-        pd.to_datetime(audits_by_month.index.astype(str), errors="coerce")
-        .strftime("%b-%y")
+    audits_by_month = (
+        summary
+        .assign(Month=pd.to_datetime(summary["Evaluation Date"], errors="coerce").dt.to_period("M"))
+        .groupby("Month")
+        .size()
+        .sort_index()
     )
+    audit_month_labels = [
+        m.strftime("%b-%y") if pd.notna(m) else ""
+        for m in audits_by_month.index.to_timestamp()
+    ]
     axam.bar(audit_month_labels, audits_by_month.values, color=theme["primary"])
     axam.set_title("Audits per Month", fontweight="bold", fontsize=11)
     axam.tick_params(axis="x", rotation=20)
