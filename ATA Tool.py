@@ -1178,9 +1178,6 @@ def pdf_evaluation(record: dict) -> bytes:
             if comm.lower() == "nan":
                 comm = ""
             comment_lines = wrap_lines(comm, comment_w - 2) if comm.strip() else [""]
-            if len(comment_lines) > 2:
-                comment_lines = comment_lines[:2]
-                comment_lines[-1] = f"{comment_lines[-1]}..."
             row_height = max(6, 4 * len(comment_lines))
             line_height = 4
             ensure_space(row_height + 2)
@@ -1365,31 +1362,51 @@ def generate_coaching_summary(evaluation_record: dict, auditor_metrics: dict | p
     det = details.copy()
     det["Parameter"] = det.get("Parameter", "").fillna("").astype(str)
     det["Result"] = det.get("Result", "").fillna("").astype(str)
-    passed = det.loc[det["Result"].str.lower() == "pass", "Parameter"].dropna().tolist()
-    failed = det.loc[det["Result"].str.lower() == "fail", "Parameter"].dropna().tolist()
-    repeated = det.loc[det["Result"].str.lower() == "fail", "Parameter"].value_counts()
-    repeated = repeated[repeated >= 2].index.tolist()
+    det["Comment"] = det.get("Comment", "").fillna("").astype(str)
+    failed_df = det.loc[det["Result"].str.lower() == "fail", ["Parameter", "Comment"]].copy()
 
     metrics = dict(auditor_metrics) if isinstance(auditor_metrics, (dict, pd.Series)) else {}
     risk_level = str(metrics.get("Risk Level", "Low"))
     follow_up = "7 days" if risk_level == "High" else ("14 days" if risk_level == "Moderate" else "Monitor next cycle")
 
-    strengths = "\n".join([f"- {p}" for p in passed]) if passed else "- Strong calibration alignment observed in this cycle."
-    gaps = "\n".join([f"- {p}" for p in failed]) if failed else "- No governance gaps identified in this cycle."
-    risk_areas = "\n".join([f"- {p}" for p in repeated]) if repeated else "- No repeated governance risk patterns detected."
-    improv = "\n".join([
-        f"- {p}: Reinforce calibration alignment, validate scoring consistency, document evidence clearly, confirm critical error identification checks, and strengthen governance discipline."
-        for p in failed
-    ]) if failed else "- Maintain calibration alignment, scoring consistency, evidence documentation, critical error checks, and governance discipline."
+    failed_params = [str(p).strip() for p in failed_df["Parameter"].tolist() if str(p).strip()]
+    governance_gaps = "\n".join([f"- {p}" for p in failed_params]) if failed_params else "- No governance gaps identified in this cycle."
+
+    if risk_level == "High":
+        risk_observation = "Elevated governance exposure detected. Immediate intervention required."
+    elif risk_level == "Moderate":
+        risk_observation = "Moderate governance variance observed. Focused coaching required."
+    else:
+        risk_observation = "Performance within governance tolerance. Continue monitoring."
+
+    actions = []
+    for _, row in failed_df.drop_duplicates(subset=["Parameter", "Comment"]).iterrows():
+        parameter = str(row.get("Parameter", "")).strip()
+        comment = str(row.get("Comment", "")).strip()
+        if not parameter:
+            continue
+        if comment:
+            actions.append(
+                f"- For '{parameter}', evaluation indicates: '{comment}'. Action: Conduct focused recalibration, reinforce governance control, and validate consistency in next two evaluations."
+            )
+        else:
+            actions.append(
+                f"- For '{parameter}', conduct targeted governance coaching and revalidate scoring discipline."
+            )
+        if parameter.lower() == "critical error identification":
+            actions.append(
+                "- Immediate governance escalation required. Align with QA leadership for recalibration review."
+            )
+    recommended_action_plan = "\n".join(dict.fromkeys(actions)) if actions else "- Continue governance monitoring and sustain current control discipline."
 
     return (
-        f"Senior QA Governance Coaching | Evaluation ID: {evaluation_record.get('evaluation_id', '')}\n"
+        f"Senior QA Governance Coaching\n"
+        f"Evaluation ID: {evaluation_record.get('evaluation_id', '')}\n"
         f"Auditor Under Review: {evaluation_record.get('auditor', '')}\n"
         f"Risk Level: {risk_level}\n\n"
-        f"Calibration Strengths\n{strengths}\n\n"
-        f"Governance Gaps\n{gaps}\n\n"
-        f"Risk Observation\n{risk_areas}\n\n"
-        f"Recommended Action Plan\n{improv}\n\n"
+        f"Governance Gaps\n{governance_gaps}\n\n"
+        f"Risk Observation\n{risk_observation}\n\n"
+        f"Recommended Action Plan\n{recommended_action_plan}\n\n"
         f"Follow-Up Timeline\n- {follow_up}"
     )
 
@@ -1604,26 +1621,26 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 10. Audits per Disposition
-    fig_disp, axd = plt.subplots(figsize=pie_figsize)
+    fig_disp, axd = plt.subplots(figsize=(6, 4))
     disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts()
     disp_labels = [str(lbl).replace(" ", "\n", 1) if len(str(lbl)) > 16 else str(lbl) for lbl in disp_counts.index]
-    axd.pie(
-        disp_counts.values,
-        labels=disp_labels,
-        autopct="%1.1f%%",
-        startangle=90,
-        colors=theme["pie_alt"][: len(disp_counts.index)],
-        radius=0.78,
-        labeldistance=1.30,
-        pctdistance=1.12,
-        wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
-        textprops={"color": theme["text"], "fontsize": 11, "weight": "bold"},
-    )
+    bars = axd.bar(disp_labels, disp_counts.values, color=theme["primary"])
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=12)
-    axd.set_aspect("equal")
-    axd.set_xlim(-1.12, 1.12)
-    axd.set_ylim(-1.12, 1.12)
-    axd.grid(False)
+    axd.tick_params(axis="x", rotation=20)
+    if len(disp_counts.values) > 0:
+        max_v = max(disp_counts.values)
+        axd.set_ylim(0, max_v * 1.25 if max_v else 1)
+    for bar in bars:
+        v = bar.get_height()
+        axd.text(
+            bar.get_x() + bar.get_width() / 2,
+            v + max(0.5, v * 0.03),
+            f"{int(v)}",
+            ha="center",
+            va="bottom",
+            fontsize=9,
+            color=theme["text"],
+        )
     style_chart(axd, theme)
     fig_disp.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
@@ -2026,10 +2043,15 @@ elif nav == "Evaluation":
                     "details": details_all,
                 }
                 upsert_google_sheet(record)
+                was_edit_mode = st.session_state.edit_mode
                 reset_evaluation_form()
                 st.session_state.save_request_key = request_key
                 st.session_state.last_saved_id = eval_id
-                st.session_state.reset_notice = f"Saved Evaluation ID: {eval_id}. Form reset for a new entry."
+                if was_edit_mode:
+                    st.session_state.goto_nav = "Evaluation"
+                    st.session_state.reset_notice = "Evaluation updated successfully. Ready for new entry."
+                else:
+                    st.session_state.reset_notice = f"Saved Evaluation ID: {eval_id}. Form reset for a new entry."
                 st.rerun()
             finally:
                 st.session_state.save_in_progress = False
@@ -2118,6 +2140,11 @@ elif nav == "View":
                 """,
                 unsafe_allow_html=True,
             )
+            selected_details = details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()].copy()
+            detail_cols = ["Group", "Parameter", "Result", "Comment", "Description"]
+            available_detail_cols = [c for c in detail_cols if c in selected_details.columns]
+            if available_detail_cols:
+                selected_details = selected_details[available_detail_cols]
             rec = {
                 "evaluation_id": sel_id,
                 "qa_name": row["QA Name"],
@@ -2129,19 +2156,20 @@ elif nav == "View":
                 "call_duration": row["Call Duration"],
                 "call_disposition": row["Call Disposition"],
                 "overall_score": row["Overall Score %"],
-                "details": details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()],
+                "details": selected_details,
             }
             export_buf = io.BytesIO()
             with pd.ExcelWriter(export_buf, engine="openpyxl") as writer:
                 pd.DataFrame([row]).to_excel(writer, sheet_name="Summary", index=False)
-                details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()].to_excel(
+                selected_details.to_excel(
                     writer, sheet_name="Details", index=False
                 )
             export_buf.seek(0)
 
             st.markdown('<div style="height: 14px;"></div>', unsafe_allow_html=True)
-            top_actions = st.columns([1,1,1], gap="medium")
+            top_actions = st.columns(3, gap="medium")
             with top_actions[0]:
+                st.markdown('<div class="action-card">', unsafe_allow_html=True)
                 st.download_button(
                     "📄 Download PDF",
                     pdf_evaluation(rec),
@@ -2149,13 +2177,21 @@ elif nav == "View":
                     "application/pdf",
                     use_container_width=True,
                 )
+                st.markdown('</div>', unsafe_allow_html=True)
             with top_actions[1]:
-                copy_html_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}", active_theme)
+                st.markdown('<div class="action-card">', unsafe_allow_html=True)
+                with st.container():
+                    copy_html_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}", active_theme)
+                st.markdown('</div>', unsafe_allow_html=True)
             with top_actions[2]:
-                copy_html_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
+                st.markdown('<div class="action-card">', unsafe_allow_html=True)
+                with st.container():
+                    copy_html_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
+                st.markdown('</div>', unsafe_allow_html=True)
 
-            bottom_actions = st.columns([1,1,1], gap="medium")
+            bottom_actions = st.columns(3, gap="medium")
             with bottom_actions[0]:
+                st.markdown('<div class="action-card">', unsafe_allow_html=True)
                 if st.button("✏️ Edit Record", use_container_width=True):
                     st.session_state.edit_mode = True
                     st.session_state.edit_eval_id = sel_id
@@ -2172,12 +2208,16 @@ elif nav == "View":
                     }
                     st.session_state.goto_nav = "Evaluation"
                     st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
             with bottom_actions[1]:
+                st.markdown('<div class="action-card">', unsafe_allow_html=True)
                 if st.button("🗑️ Delete Record", use_container_width=True):
                     if delete_evaluation(sel_id):
                         st.success(f"Deleted {sel_id}")
                         st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
             with bottom_actions[2]:
+                st.markdown('<div class="action-card">', unsafe_allow_html=True)
                 st.download_button(
                     "📥 Export Selected to Excel",
                     export_buf,
@@ -2185,6 +2225,7 @@ elif nav == "View":
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                 )
+                st.markdown('</div>', unsafe_allow_html=True)
 
             coaching_cols = st.columns([1, 1])
             with coaching_cols[0]:
@@ -2329,20 +2370,61 @@ elif nav == "Dashboard":
                 else:
                     st.dataframe(risk_table, use_container_width=True, hide_index=True)
 
-                if not health_df.empty:
-                    chart_theme = get_chart_theme()
-                    health_plot = health_df.sort_values("Health Index", ascending=True)
-                    fig_hi, ax_hi = plt.subplots(figsize=(8, 4.5))
-                    ax_hi.barh(health_plot["Auditor"], health_plot["Health Index"], color=chart_theme["primary"])
-                    ax_hi.set_xlim(0, 100)
-                    ax_hi.set_title("Auditor Health Index", fontweight="bold", fontsize=11)
-                    ax_hi.set_xlabel("Health Index")
-                    for i, v in enumerate(health_plot["Health Index"]):
-                        ax_hi.text(v + 1, i, f"{v:.1f}", va="center", color=chart_theme["accent"], fontsize=9, fontweight="bold")
-                    style_chart(ax_hi, chart_theme)
-                    fig_hi.patch.set_facecolor(chart_theme["bg"])
-                    plt.tight_layout()
-                    st.pyplot(fig_hi, use_container_width=True)
+                st.markdown("### 🚩 Interactions Requiring Coaching")
+                interactions = summary.copy()
+                interactions["Overall Score %"] = pd.to_numeric(interactions.get("Overall Score %", 0), errors="coerce").fillna(0)
+                interactions["Evaluation Date"] = pd.to_datetime(interactions.get("Evaluation Date"), errors="coerce")
+                detail_fail = details[details.get("Result", "").astype(str).str.lower() == "fail"].copy()
+                if not detail_fail.empty:
+                    first_fail = detail_fail.groupby("Evaluation ID", as_index=False).first()[["Evaluation ID", "Parameter"]]
+                    first_fail = first_fail.rename(columns={"Parameter": "First Failed Parameter"})
+                else:
+                    first_fail = pd.DataFrame(columns=["Evaluation ID", "First Failed Parameter"])
+
+                interactions = interactions.merge(first_fail, on="Evaluation ID", how="left")
+                if "Reaudit" not in interactions.columns:
+                    interactions["Reaudit"] = ""
+                critical_ids = details[
+                    details.get("Parameter", "").astype(str).str.strip().str.lower().eq("critical error identification")
+                    & details.get("Result", "").astype(str).str.strip().str.lower().eq("fail")
+                ]["Evaluation ID"].astype(str).str.strip().unique().tolist()
+                repeat_by_auditor = auditor_intel.set_index("Auditor")["Repeat Failure Count"] if not auditor_intel.empty else pd.Series(dtype=float)
+                interactions["_repeat"] = interactions.get("Auditor", "").map(repeat_by_auditor).fillna(0)
+                interactions["_critical"] = interactions["Evaluation ID"].astype(str).str.strip().isin(critical_ids)
+                interactions["_score"] = interactions["Overall Score %"] < 85
+                interactions["_reaudit"] = interactions["Reaudit"].astype(str).str.strip().str.lower().eq("yes")
+                interactions = interactions[(interactions["_score"]) | (interactions["_critical"]) | (interactions["_repeat"] >= 1) | (interactions["_reaudit"])]
+
+                def _reason(r):
+                    reasons = []
+                    if r["_score"]:
+                        reasons.append("Score")
+                    if r["_critical"]:
+                        reasons.append("Critical")
+                    if r["_repeat"] >= 1:
+                        reasons.append("Repeat")
+                    if r["_reaudit"]:
+                        reasons.append("Reaudit")
+                    return " / ".join(reasons)
+
+                if interactions.empty:
+                    st.info("No high-risk interactions detected.")
+                else:
+                    interactions["Trigger Reason"] = interactions.apply(_reason, axis=1)
+                    out_cols = [
+                        "Evaluation ID",
+                        "Evaluation Date",
+                        "QA Name",
+                        "Auditor",
+                        "Overall Score %",
+                        "First Failed Parameter",
+                        "Trigger Reason",
+                    ]
+                    for c in out_cols:
+                        if c not in interactions.columns:
+                            interactions[c] = ""
+                    interactions = interactions.sort_values("Evaluation Date", ascending=False)
+                    st.dataframe(interactions[out_cols], use_container_width=True, hide_index=True)
 
                 st.divider()
                 st.markdown('<div class="dashboard-action-btn">', unsafe_allow_html=True)
