@@ -947,43 +947,98 @@ def email_html_inline(record: dict) -> str:
             comm = str(r["Comment"]) if str(r["Comment"]).lower() != "nan" else ""
             rows.append(
                 "<tr>"
-                f"<td style='padding:8px;border-bottom:1px solid #eee;'>{r['Parameter']}</td>"
-                "<td style='padding:8px;border-bottom:1px solid #eee;text-align:center;'>"
+                f"<td style='padding:10px 12px;border-bottom:1px solid #e5e7eb;vertical-align:top;width:45%;'>{r['Parameter']}</td>"
+                "<td style='padding:10px 12px;border-bottom:1px solid #e5e7eb;text-align:center;vertical-align:middle;width:15%;'>"
                 f"<span style='{badge}'>{status}</span>"
                 "</td>"
-                f"<td style='padding:8px;border-bottom:1px solid #eee;'>{comm}</td>"
+                f"<td style='padding:10px 12px;border-bottom:1px solid #e5e7eb;vertical-align:top;width:40%;'>{comm}</td>"
                 "</tr>"
             )
         return (
-            "<table style='width:100%;border-collapse:collapse;font-size:13px;'>"
+            "<table role='presentation' cellpadding='0' cellspacing='0' style='width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px;'>"
             "<tr style='background:#f8fafc;'>"
-            "<th style='text-align:left;padding:8px;'>Parameter</th>"
-            "<th style='width:80px;padding:8px;'>Result</th>"
-            "<th style='padding:8px;'>Comment</th>"
+            "<th style='text-align:left;padding:10px 12px;border-bottom:1px solid #e5e7eb;width:45%;'>Parameter</th>"
+            "<th style='text-align:center;padding:10px 12px;border-bottom:1px solid #e5e7eb;width:15%;'>Result</th>"
+            "<th style='text-align:left;padding:10px 12px;border-bottom:1px solid #e5e7eb;width:40%;'>Comment</th>"
             "</tr>"
             f"{''.join(rows)}"
             "</table>"
         )
     det = record["details"]
     return f"""
-    <div style="font-family:sans-serif;max-width:800px;border:1px solid #eee;padding:20px;border-radius:15px;">
-        <div style="background:#0b1f3a;color:white;padding:15px;border-radius:10px;margin-bottom:20px;">
-            <h2 style="margin:0;">{DAMAC_TITLE} | ATA Evaluation</h2>
-            <p style="margin:5px 0 0 0;opacity:0.8;">{DAMAC_SUB1} | {DAMAC_SUB2}</p>
-        </div>
-        <table style="width:100%;margin-bottom:20px;font-size:14px;">
-            <tr><td><b>Evaluation ID:</b> {record['evaluation_id']}</td><td><b>Evaluation Date:</b> {record['evaluation_date']}</td></tr>
-            <tr><td><b>QA Name:</b> {record['qa_name']}</td><td><b>Auditor Name:</b> {record['auditor']}</td></tr>
-            <tr><td><b>Audit Date:</b> {record['audit_date']}</td><td><b>Call ID:</b> {record['call_id']}</td></tr>
-            <tr><td><b>Call Duration:</b> {record['call_duration']}</td><td><b>Call Disposition:</b> {record['call_disposition']}</td></tr>
-            <tr><td colspan="2" style="padding-top:10px;"><div style="background:#f1f5f9;padding:10px;border-radius:8px;text-align:center;"><b>Overall Score: <span style="font-size:20px;color:#0b1f3a;">{record['overall_score']:.2f}%</span></b></div></td></tr>
-        </table>
-        <h3 style="color:#0b1f3a;border-left:4px solid #0b1f3a;padding-left:10px;">Accuracy of Scoring</h3>
-        {make_table(det[det["Group"] == "ACCURACY_SUB"])}
-        <h3 style="color:#0b1f3a;border-left:4px solid #0b1f3a;padding-left:10px;margin-top:20px;">Evaluation Quality</h3>
-        {make_table(det[det["Group"] == "EVAL_QUALITY"])}
-        <div style="margin-top:20px;padding:10px;background:#f8fafc;border-radius:8px;"><b>Reaudit Status:</b> {record['reaudit']}</div>
-    </div>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0;padding:0;border-collapse:collapse;background:#f3f4f6;">
+      <tr>
+        <td align="center" style="padding:24px 12px;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="700" style="width:700px;max-width:700px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);overflow:hidden;font-family:Arial,sans-serif;color:#111827;">
+            <tr>
+              <td style="background:#0b1f3a;color:#ffffff;padding:12px 18px;">
+                <div style="font-size:20px;line-height:1.25;font-weight:700;">{DAMAC_TITLE} | ATA Evaluation</div>
+                <div style="font-size:12px;line-height:1.5;opacity:0.9;margin-top:2px;">{DAMAC_SUB1} | {DAMAC_SUB2}</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:16px 18px 6px 18px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px;">
+                  <tr>
+                    <td style="padding:6px 8px;vertical-align:top;width:50%;"><span style="font-weight:700;color:#0b1f3a;">Evaluation ID:</span> {record['evaluation_id']}</td>
+                    <td style="padding:6px 8px;vertical-align:top;width:50%;"><span style="font-weight:700;color:#0b1f3a;">Evaluation Date:</span> {record['evaluation_date']}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 8px;vertical-align:top;"><span style="font-weight:700;color:#0b1f3a;">QA Name:</span> {record['qa_name']}</td>
+                    <td style="padding:6px 8px;vertical-align:top;"><span style="font-weight:700;color:#0b1f3a;">Auditor Name:</span> {record['auditor']}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 8px;vertical-align:top;"><span style="font-weight:700;color:#0b1f3a;">Audit Date:</span> {record['audit_date']}</td>
+                    <td style="padding:6px 8px;vertical-align:top;"><span style="font-weight:700;color:#0b1f3a;">Call ID:</span> {record['call_id']}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:6px 8px;vertical-align:top;"><span style="font-weight:700;color:#0b1f3a;">Call Duration:</span> {record['call_duration']}</td>
+                    <td style="padding:6px 8px;vertical-align:top;"><span style="font-weight:700;color:#0b1f3a;">Call Disposition:</span> {record['call_disposition']}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:8px 18px 0 18px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+                  <tr>
+                    <td align="center" style="background:#f1f5f9;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;">
+                      <div style="font-size:12px;color:#475569;line-height:1.4;">Overall Score</div>
+                      <div style="font-size:24px;font-weight:700;line-height:1.2;color:#0b1f3a;">{record['overall_score']:.2f}%</div>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:18px 18px 0 18px;">
+                <div style="font-size:18px;font-weight:700;line-height:1.3;color:#0b1f3a;border-left:4px solid #0b1f3a;padding-left:10px;">Accuracy of Scoring</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 18px 0 18px;">{make_table(det[det["Group"] == "ACCURACY_SUB"])}</td>
+            </tr>
+            <tr>
+              <td style="padding:22px 18px 0 18px;">
+                <div style="font-size:18px;font-weight:700;line-height:1.3;color:#0b1f3a;border-left:4px solid #0b1f3a;padding-left:10px;">Evaluation Quality</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:10px 18px 0 18px;">{make_table(det[det["Group"] == "EVAL_QUALITY"])}</td>
+            </tr>
+            <tr>
+              <td style="padding:18px;">
+                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
+                  <tr>
+                    <td style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.4;"><span style="font-weight:700;color:#0b1f3a;">Reaudit Status:</span> {record['reaudit']}</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
     """
 class PDFReport(FPDF):
     def header(self):
@@ -2078,7 +2133,6 @@ elif nav == "Dashboard":
                         use_container_width=True,
                     )
                 st.markdown('</div>', unsafe_allow_html=True)
-
 
 
 
