@@ -178,7 +178,11 @@ def read_google_summary():
     sheet = connect_google_sheet()
     ws = sheet.worksheet("Summary")
     data = ws.get_all_records()
-    return _standardize_columns(pd.DataFrame(data), SUMMARY_COLUMNS)
+    df = _standardize_columns(pd.DataFrame(data), SUMMARY_COLUMNS)
+    for col in ["Passed Points", "Failed Points", "Total Points", "Overall Score %"]:
+        if col in df.columns:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
+    return df
 
 
 @st.cache_data
@@ -1094,7 +1098,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         details = read_google_details()
     if summary.empty or details.empty:
         return (None,) * 10 + (summary, details)
-    for col in ["Failed Points", "Total Points", "Overall Score %"]:
+    for col in ["Passed Points", "Failed Points", "Total Points", "Overall Score %"]:
         if col in summary.columns:
             summary[col] = pd.to_numeric(summary[col], errors="coerce").fillna(0)
     summary["Evaluation Date"] = pd.to_datetime(summary.get("Evaluation Date"), errors="coerce")
