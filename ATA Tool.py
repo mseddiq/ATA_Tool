@@ -362,28 +362,35 @@ def apply_theme_css(theme: dict):
     .stDownloadButton>button,
     .stForm [data-testid="stFormSubmitButton"]>button {{
 
-        width: 100%;
-        height: 52px;
-        min-height: 52px;
-        max-height: 52px;
+        width: 100% !important;
 
-        border-radius: 10px;
+        height: 60px !important;
+        min-height: 60px !important;
+        max-height: 60px !important;
+
+        border-radius: 12px;
         border: 1px solid var(--border) !important;
         background: var(--btn-bg) !important;
         color: var(--btn-text) !important;
 
         font-weight: 700;
-        padding: 0 16px;
+        font-size: 16px;
 
         display: flex;
         align-items: center;
         justify-content: center;
 
-        transition: all 0.25s ease;
-        cursor: pointer;
+        margin: 0 !important;
     }}
 
     .eval-action-row [data-testid="stFormSubmitButton"] > button {{ color: {eval_btn_text} !important; }}
+
+    .action-card {
+        width: 100%;
+        height: 60px;
+        display: flex;
+        align-items: center;
+    }
 
     .stButton>button:hover, .stDownloadButton>button:hover, .stForm [data-testid="stFormSubmitButton"]>button:hover {{ transform: translateY(-4px); box-shadow: 0 12px 24px {stat_hover_shadow}; filter: brightness(1.06); }}
 
@@ -2180,7 +2187,7 @@ elif nav == "View":
             export_buf.seek(0)
 
             st.markdown('<div style="height: 14px;"></div>', unsafe_allow_html=True)
-            top_actions = st.columns(3, gap="medium")
+            top_actions = st.columns(3, gap="large")
             with top_actions[0]:
                 st.markdown('<div class="action-card">', unsafe_allow_html=True)
                 st.download_button(
@@ -2202,7 +2209,7 @@ elif nav == "View":
                     copy_html_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            bottom_actions = st.columns(3, gap="medium")
+            bottom_actions = st.columns(3, gap="large")
             with bottom_actions[0]:
                 st.markdown('<div class="action-card">', unsafe_allow_html=True)
                 if st.button("✏️ Edit Record", use_container_width=True):
@@ -2240,8 +2247,9 @@ elif nav == "View":
                 )
                 st.markdown('</div>', unsafe_allow_html=True)
 
-            coaching_cols = st.columns([1, 1])
-            with coaching_cols[0]:
+            coaching_actions = st.columns(3, gap="large")
+            with coaching_actions[0]:
+                st.markdown('<div class="action-card">', unsafe_allow_html=True)
                 if st.button("🧠 Generate Coaching Summary", use_container_width=True):
                     auditor_base = compute_auditor_intelligence(summary, details)
                     auditor_risk = compute_risk_flags(auditor_base, details)
@@ -2249,6 +2257,28 @@ elif nav == "View":
                     metric_payload = row_metrics.iloc[0].to_dict() if not row_metrics.empty else {"Risk Level": "Low"}
                     st.session_state.coaching_summary_text = generate_coaching_summary(rec, metric_payload)
                     st.session_state.coaching_summary_eval_id = str(sel_id).strip()
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with coaching_actions[1]:
+                st.markdown('<div class="action-card">', unsafe_allow_html=True)
+                if st.session_state.get("coaching_summary_text"):
+                    copy_html_to_clipboard_button(
+                        "📋 Copy Coaching Summary",
+                        f"<pre>{st.session_state.get('coaching_summary_text', '')}</pre>",
+                        f"copy_coach_{sel_id}",
+                        active_theme,
+                    )
+                else:
+                    st.button("📋 Copy Coaching Summary", use_container_width=True, disabled=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with coaching_actions[2]:
+                st.markdown('<div class="action-card">', unsafe_allow_html=True)
+                if st.button("🧹 Clear Coaching Summary", use_container_width=True, disabled=not st.session_state.get("coaching_summary_text")):
+                    st.session_state.coaching_summary_text = ""
+                    st.rerun()
+                st.markdown('</div>', unsafe_allow_html=True)
+
             if st.session_state.get("coaching_summary_text"):
                 st.text_area(
                     "Coaching Summary",
@@ -2256,19 +2286,6 @@ elif nav == "View":
                     height=260,
                     key=f"coach_text_{sel_id}",
                 )
-                with coaching_cols[1]:
-                    coach_action_cols = st.columns(2)
-                    with coach_action_cols[0]:
-                        copy_html_to_clipboard_button(
-                            "📋 Copy Coaching Summary",
-                            f"<pre>{st.session_state.get('coaching_summary_text', '')}</pre>",
-                            f"copy_coach_{sel_id}",
-                            active_theme,
-                        )
-                    with coach_action_cols[1]:
-                        if st.button("🧹 Clear Coaching Summary", use_container_width=True):
-                            st.session_state.coaching_summary_text = ""
-                            st.rerun()
 
             st.markdown("<div class='group-title'>Parameter Breakdown</div>", unsafe_allow_html=True)
             det = details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()]
