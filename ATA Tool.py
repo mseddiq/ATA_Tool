@@ -1128,12 +1128,15 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
             )
     # 1. Trend Chart (Failure Rate)
     trend = summary.groupby("Month")["Failure Rate"].mean().sort_index()
+    trend_x = trend.index.to_timestamp()
     fig_trend, ax = plt.subplots(figsize=(6, 4))
-    ax.plot(trend.index, trend.values * 100, marker="o", color=theme["primary"], linewidth=2, markersize=6)
-    ax.fill_between(trend.index, trend.values * 100, color=theme["primary"], alpha=0.15)
+    ax.plot(trend_x, trend.values * 100, marker="o", color=theme["primary"], linewidth=2, markersize=6)
+    ax.fill_between(trend_x, trend.values * 100, color=theme["primary"], alpha=0.15)
     ax.set_title("Failure Rate Trend (%)", fontweight="bold", fontsize=11)
     ax.grid(True, alpha=0.25, color=theme["grid"])
-    for x, y in zip(trend.index, trend.values * 100):
+    ax.set_xticks(trend_x)
+    ax.set_xticklabels([d.strftime("%b-%y") for d in trend_x])
+    for x, y in zip(trend_x, trend.values * 100):
         ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 8), ha="center", color=theme["text"])
     style_chart(ax, theme)
     fig_trend.patch.set_facecolor(theme["bg"])
