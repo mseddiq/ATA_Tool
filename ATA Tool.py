@@ -897,10 +897,10 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         box-shadow: 0 12px 24px rgba(0,0,0,0.25);
         filter: brightness(1.05);
       }}
-      #status-{key} {
-        position:absolute;
-        left:-9999px;
-      }
+      #status-{key} {{
+        position: absolute;
+        left: -9999px;
+      }}
       #status-{key}.err {{ color:{theme.get('fail', '#ef4444')}; }}
     </style>
 
@@ -1760,7 +1760,6 @@ for key in [
     "theme_mode",
     "form_key_id",
     "save_in_progress",
-    "save_request_key",
     "coaching_summary_text",
 ]:
     if key not in st.session_state:
@@ -1776,8 +1775,6 @@ for key in [
             st.session_state[key] = uuid4().hex
         elif key == "save_in_progress":
             st.session_state[key] = False
-        elif key == "save_request_key":
-            st.session_state[key] = ""
         else:
             st.session_state[key] = ""
 
@@ -2012,12 +2009,10 @@ elif nav == "Evaluation":
         st.markdown("</div>", unsafe_allow_html=True)
         if reset_clicked:
             reset_evaluation_form()
-            st.session_state.save_request_key = ""
             st.session_state.reset_notice = "Form reset."
             st.rerun()
         if cancel_clicked:
             reset_evaluation_form()
-            st.session_state.save_request_key = ""
             st.session_state.goto_nav = "View"
             st.rerun()
         if save_clicked:
@@ -2032,10 +2027,6 @@ elif nav == "Evaluation":
                 if st.session_state.edit_mode
                 else next_evaluation_id(eval_date.strftime("%Y-%m-%d"))
             )
-            request_key = f"{norm_id(eval_id)}|{eval_date.strftime('%Y-%m-%d')}|{audit_date.strftime('%Y-%m-%d')}|{qa_name}|{auditor}|{call_id}"
-            if st.session_state.get("save_request_key") == request_key:
-                st.info("This evaluation was already saved.")
-                st.stop()
             st.session_state.save_in_progress = True
             try:
                 acc_full, qual_full = df_acc.copy(), df_qual.copy()
@@ -2065,7 +2056,6 @@ elif nav == "Evaluation":
                 upsert_google_sheet(record)
                 was_edit_mode = st.session_state.edit_mode
                 reset_evaluation_form()
-                st.session_state.save_request_key = request_key
                 st.session_state.last_saved_id = eval_id
                 if was_edit_mode:
                     st.session_state.goto_nav = "View"
