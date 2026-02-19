@@ -884,9 +884,9 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         font-size:12px;
         margin-top:4px;
         text-align:center;
-        color:{theme['pass']};
+        color:{theme.get('button_text', '#000000')};
       }}
-      #status-{key}.err {{ color:{theme['fail']}; }}
+      #status-{key}.err {{ color:{theme.get('fail', '#ef4444')}; }}
     </style>
 
     <button id="btn-{key}" type="button">{label}</button>
@@ -1626,24 +1626,23 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     style_chart(axf, theme)
     fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
-    # 10. Audits per Disposition
+    # 10. Audits per Disposition (HORIZONTAL BAR)
     fig_disp, axd = plt.subplots(figsize=(6, 4))
-    disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts()
-    disp_labels = [str(lbl).replace(" ", "\n", 1) if len(str(lbl)) > 16 else str(lbl) for lbl in disp_counts.index]
-    bars = axd.bar(disp_labels, disp_counts.values, color=theme["primary"])
+
+    disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts().sort_values()
+
+    bars = axd.barh(disp_counts.index, disp_counts.values, color=theme["primary"])
+
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=12)
-    axd.tick_params(axis="x", rotation=20)
-    if len(disp_counts.values) > 0:
-        max_v = max(disp_counts.values)
-        axd.set_ylim(0, max_v * 1.25 if max_v else 1)
+
+    # Add value labels OUTSIDE bars
     for bar in bars:
-        v = bar.get_height()
+        width = bar.get_width()
         axd.text(
-            bar.get_x() + bar.get_width() / 2,
-            v + max(0.5, v * 0.03),
-            f"{int(v)}",
-            ha="center",
-            va="bottom",
+            width + max(0.3, width * 0.03),
+            bar.get_y() + bar.get_height() / 2,
+            f"{int(width)}",
+            va="center",
             fontsize=9,
             color=theme["text"],
         )
@@ -2486,7 +2485,6 @@ elif nav == "Dashboard":
                         use_container_width=True,
                     )
                 st.markdown('</div>', unsafe_allow_html=True)
-
 
 
 
