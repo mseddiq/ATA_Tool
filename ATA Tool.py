@@ -1,4 +1,5 @@
 import io
+import base64
 import json
 import os
 import sys
@@ -849,9 +850,10 @@ def compute_weighted_score(df: pd.DataFrame) -> dict:
         "total_points": total_points,
     }
 # -------------------- EXPORT HELPERS --------------------
-def copy_to_clipboard_button(label: str, text_to_copy: str, key: str, theme: dict) -> None:
-    safe_text = text_to_copy.replace("\\", "\\\\").replace("`", "\\`").replace("${", "\\${")
-    html = f"""
+def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme: dict) -> None:
+    html_b64 = base64.b64encode(html_to_copy.encode("utf-8")).decode("ascii")
+
+    js = f"""
     <style>
       html, body {{ margin:0; padding:0; background:transparent; }}
       #wrap-{key} {{ width:100%; }}
@@ -868,23 +870,59 @@ def copy_to_clipboard_button(label: str, text_to_copy: str, key: str, theme: dic
         transition:all 0.25s ease;
       }}
       #btn-{key}:hover {{ transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.20); }}
-      #copystatus-{key} {{ font-family:sans-serif;color:#10b981;font-size:12px;margin-top:4px;text-align:center; }}
+      #status-{key} {{ font-family:sans-serif;color:#10b981;font-size:12px;margin-top:4px;text-align:center; }}
+      #status-{key}.err {{ color:#ef4444; }}
     </style>
+
     <div id="wrap-{key}">
-      <button id="btn-{key}">{label}</button>
-      <div id="copystatus-{key}"></div>
+      <button id="btn-{key}" type="button">{label}</button>
+      <div id="status-{key}"></div>
     </div>
+
     <script>
-      document.getElementById("btn-{key}").onclick = () => {{
-        const text = `{safe_text}`;
-        navigator.clipboard.writeText(text).then(() => {{
-          const el = document.getElementById("copystatus-{key}");
-          if(el) el.innerText = "Copied!";
-        }});
-      }};
+      const b64 = "{html_b64}";
+      const statusEl = document.getElementById("status-{key}");
+
+      function b64ToUtf8(b64Str) {{
+        const bin = atob(b64Str);
+        const bytes = new Uint8Array([...bin].map(ch => ch.charCodeAt(0)));
+        return new TextDecoder("utf-8").decode(bytes);
+      }}
+
+      async function copyHtml() {{
+        const html = b64ToUtf8(b64);
+        const tmp = document.createElement("div");
+        tmp.innerHTML = html;
+        const plain = (tmp.innerText || tmp.textContent || "").trim();
+
+        try {{
+          if (navigator.clipboard && window.ClipboardItem) {{
+            const item = new ClipboardItem({{
+              "text/html": new Blob([html], {{ type: "text/html" }}),
+              "text/plain": new Blob([plain], {{ type: "text/plain" }})
+            }});
+            await navigator.clipboard.write([item]);
+            statusEl.innerText = "Copied (HTML)";
+            statusEl.className = "";
+            return;
+          }}
+        }} catch (e) {{}}
+
+        try {{
+          await navigator.clipboard.writeText(plain);
+          statusEl.innerText = "Copied (plain text)";
+          statusEl.className = "";
+        }} catch (e) {{
+          statusEl.innerText = "Copy blocked by browser";
+          statusEl.className = "err";
+        }}
+      }}
+
+      document.getElementById("btn-{key}").addEventListener("click", copyHtml);
     </script>
     """
-    components.html(html, height=64)
+    components.html(js, height=70)
+
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
 
@@ -1861,9 +1899,9 @@ elif nav == "View":
                     use_container_width=True,
                 )
             with top_actions[1]:
-                copy_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}", active_theme)
+                copy_html_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}", active_theme)
             with top_actions[2]:
-                copy_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
+                copy_html_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
 
             bottom_actions = st.columns([1,1,1], gap="medium")
             with bottom_actions[0]:
