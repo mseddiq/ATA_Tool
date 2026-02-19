@@ -866,6 +866,12 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         font-weight:700;
         padding:0.5rem 1rem;
         cursor:pointer;
+        transition: all 0.25s ease;
+      }}
+      #btn-{key}:hover {{
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0,0,0,0.25);
+        filter: brightness(1.05);
       }}
       #status-{key} {{
         font-family:sans-serif;
@@ -1368,20 +1374,23 @@ def generate_coaching_summary(evaluation_record: dict, auditor_metrics: dict | p
     risk_level = str(metrics.get("Risk Level", "Low"))
     follow_up = "7 days" if risk_level == "High" else ("14 days" if risk_level == "Moderate" else "Monitor next cycle")
 
-    strengths = "\n".join([f"- {p}" for p in passed]) if passed else "- No clear strengths captured in this cycle."
-    gaps = "\n".join([f"- {p}" for p in failed]) if failed else "- No failed parameters in this cycle."
-    risk_areas = "\n".join([f"- {p}" for p in repeated]) if repeated else "- No repeated failure patterns detected in this evaluation."
-    improv = "\n".join([f"- {p}: Revisit script standard, run targeted role-play, and QA recheck in next calibration." for p in failed]) if failed else "- Continue current best practices and maintain consistency."
+    strengths = "\n".join([f"- {p}" for p in passed]) if passed else "- Strong calibration alignment observed in this cycle."
+    gaps = "\n".join([f"- {p}" for p in failed]) if failed else "- No governance gaps identified in this cycle."
+    risk_areas = "\n".join([f"- {p}" for p in repeated]) if repeated else "- No repeated governance risk patterns detected."
+    improv = "\n".join([
+        f"- {p}: Reinforce calibration alignment, validate scoring consistency, document evidence clearly, confirm critical error identification checks, and strengthen governance discipline."
+        for p in failed
+    ]) if failed else "- Maintain calibration alignment, scoring consistency, evidence documentation, critical error checks, and governance discipline."
 
     return (
-        f"Coaching Summary | Evaluation ID: {evaluation_record.get('evaluation_id', '')}\n"
-        f"Auditor: {evaluation_record.get('auditor', '')}\n"
+        f"Senior QA Governance Coaching | Evaluation ID: {evaluation_record.get('evaluation_id', '')}\n"
+        f"Auditor Under Review: {evaluation_record.get('auditor', '')}\n"
         f"Risk Level: {risk_level}\n\n"
-        f"Strengths\n{strengths}\n\n"
-        f"Gaps\n{gaps}\n\n"
-        f"Risk Areas\n{risk_areas}\n\n"
-        f"Improvement Plan\n{improv}\n\n"
-        f"Follow-up Timeline\n- {follow_up}"
+        f"Calibration Strengths\n{strengths}\n\n"
+        f"Governance Gaps\n{gaps}\n\n"
+        f"Risk Observation\n{risk_areas}\n\n"
+        f"Recommended Action Plan\n{improv}\n\n"
+        f"Follow-Up Timeline\n- {follow_up}"
     )
 
 # -------------------- DASHBOARD LOGIC --------------------
@@ -2193,12 +2202,18 @@ elif nav == "View":
                     key=f"coach_text_{sel_id}",
                 )
                 with coaching_cols[1]:
-                    copy_html_to_clipboard_button(
-                        "📋 Copy Coaching Summary",
-                        f"<pre>{st.session_state.get('coaching_summary_text', '')}</pre>",
-                        f"copy_coach_{sel_id}",
-                        active_theme,
-                    )
+                    coach_action_cols = st.columns(2)
+                    with coach_action_cols[0]:
+                        copy_html_to_clipboard_button(
+                            "📋 Copy Coaching Summary",
+                            f"<pre>{st.session_state.get('coaching_summary_text', '')}</pre>",
+                            f"copy_coach_{sel_id}",
+                            active_theme,
+                        )
+                    with coach_action_cols[1]:
+                        if st.button("🧹 Clear Coaching Summary", use_container_width=True):
+                            st.session_state.coaching_summary_text = ""
+                            st.rerun()
 
             st.markdown("<div class='group-title'>Parameter Breakdown</div>", unsafe_allow_html=True)
             det = details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()]
@@ -2295,6 +2310,10 @@ elif nav == "Dashboard":
                 risk_df = compute_risk_flags(auditor_intel, details)
                 health_df = compute_health_index(auditor_intel, details)
                 ranking_df = auditor_intel.merge(health_df[["Auditor", "Health Index", "Health Classification"]], on="Auditor", how="left")
+                ranking_df["Health Index"] = pd.to_numeric(
+                    ranking_df["Health Index"],
+                    errors="coerce"
+                ).fillna(0)
                 ranking_df = ranking_df.sort_values("Health Index", ascending=False)
                 st.dataframe(ranking_df, use_container_width=True, hide_index=True)
 
@@ -2319,7 +2338,7 @@ elif nav == "Dashboard":
                     ax_hi.set_title("Auditor Health Index", fontweight="bold", fontsize=11)
                     ax_hi.set_xlabel("Health Index")
                     for i, v in enumerate(health_plot["Health Index"]):
-                        ax_hi.text(v + 1, i, f"{v:.1f}", va="center", color=chart_theme["text"], fontsize=9)
+                        ax_hi.text(v + 1, i, f"{v:.1f}", va="center", color=chart_theme["accent"], fontsize=9, fontweight="bold")
                     style_chart(ax_hi, chart_theme)
                     fig_hi.patch.set_facecolor(chart_theme["bg"])
                     plt.tight_layout()
