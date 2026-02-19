@@ -645,7 +645,8 @@ def write_formatted_report(
     ]
     acc_cols = ACCURACY_SUBPARAMS
     eval_cols = [p for p, _ in EVALUATION_QUALITY_PARAMS]
-    all_cols = details_cols + acc_cols + eval_cols
+    key_failed_col = "Key Failed Comments"
+    all_cols = details_cols + acc_cols + eval_cols + [key_failed_col]
     details_start = 1
     details_end = details_start + len(details_cols) - 1
     acc_start = details_end + 1
@@ -719,7 +720,12 @@ def write_formatted_report(
             for param in eval_cols:
                 match = detail_rows[detail_rows["Parameter"] == param]
                 eval_values.append(match.iloc[0]["Result"] if not match.empty else "")
-        values = details_values + acc_values + eval_values
+        failed_comments = ""
+        if not detail_rows.empty and "Result" in detail_rows.columns and "Comment" in detail_rows.columns:
+            fail_rows = detail_rows[detail_rows["Result"].astype(str).str.strip().str.lower() == "fail"]
+            comments = [str(c).strip() for c in fail_rows["Comment"].tolist() if str(c).strip() and str(c).strip().lower() != "nan"]
+            failed_comments = " | ".join(dict.fromkeys(comments))
+        values = details_values + acc_values + eval_values + [failed_comments]
         for idx, value in enumerate(values, start=1):
             cell = ws.cell(row=row_idx, column=idx, value=value)
             cell.fill = white_fill
@@ -878,9 +884,9 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         font-size:12px;
         margin-top:4px;
         text-align:center;
-        color:#10b981;
+        color:{theme['pass']};
       }}
-      #status-{key}.err {{ color:#ef4444; }}
+      #status-{key}.err {{ color:{theme['fail']}; }}
     </style>
 
     <button id="btn-{key}" type="button">{label}</button>
@@ -934,7 +940,7 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
     </script>
     """
 
-    components.html(js, height=75)
+    components.html(js, height=88)
 
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
@@ -994,7 +1000,7 @@ def email_html_inline(record: dict) -> str:
                     <td style="padding:6px 8px;vertical-align:top;"><span style="font-weight:700;color:#0b1f3a;">Auditor Name:</span> {record['auditor']}</td>
                   </tr>
                   <tr>
-                    <td style="padding:6px 8px;vertical-align:top;"><span style="font-weight:700;color:#0b1f3a;">Audit Date:</span> {record['audit_date']}</td>
+                    <td style="padding:6px 8px;vertical-align:top;"><span style="font-weight:700;color:#0b1f3a;">Audit Date:</span> {format_date(record['audit_date'])}</td>
                     <td style="padding:6px 8px;vertical-align:top;"><span style="font-weight:700;color:#0b1f3a;">Call ID:</span> {record['call_id']}</td>
                   </tr>
                   <tr>
@@ -1507,7 +1513,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
     fail_points = summary["Failed Points"].sum() if "Failed Points" in summary.columns else 0
     fig_pie, axp = plt.subplots(figsize=pie_figsize)
-    pass_fail_colors = ["#3FAE8C", "#E4572E"]
+    pass_fail_colors = [theme["pass"], theme["fail"]]
     axp.pie(
         [pass_points, fail_points],
         labels=["Pass", "Fail"],
@@ -2048,8 +2054,8 @@ elif nav == "Evaluation":
                 st.session_state.save_request_key = request_key
                 st.session_state.last_saved_id = eval_id
                 if was_edit_mode:
-                    st.session_state.goto_nav = "Evaluation"
-                    st.session_state.reset_notice = "Evaluation updated successfully. Ready for new entry."
+                    st.session_state.goto_nav = "View"
+                    st.session_state.reset_notice = "Evaluation updated successfully."
                 else:
                     st.session_state.reset_notice = f"Saved Evaluation ID: {eval_id}. Form reset for a new entry."
                 st.rerun()
@@ -2116,6 +2122,9 @@ elif nav == "View":
             ).tolist()
             sel_label = st.selectbox("Select Record to View Details", record_options)
             sel_id = sel_label.split(" | ")[1]
+            if st.session_state.get("coaching_summary_eval_id") != str(sel_id).strip():
+                st.session_state.coaching_summary_text = ""
+                st.session_state.coaching_summary_eval_id = str(sel_id).strip()
             selected_rows = summary[summary["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()]
             if selected_rows.empty:
                 st.error("Selected record was not found. Please refresh and try again.")
@@ -2235,6 +2244,7 @@ elif nav == "View":
                     row_metrics = auditor_risk[auditor_risk["Auditor"].astype(str).str.strip() == str(row["Auditor"]).strip()]
                     metric_payload = row_metrics.iloc[0].to_dict() if not row_metrics.empty else {"Risk Level": "Low"}
                     st.session_state.coaching_summary_text = generate_coaching_summary(rec, metric_payload)
+                    st.session_state.coaching_summary_eval_id = str(sel_id).strip()
             if st.session_state.get("coaching_summary_text"):
                 st.text_area(
                     "Coaching Summary",
@@ -2319,7 +2329,7 @@ elif nav == "Dashboard":
                 _summary_unused,
                 _details_unused,
             ) = build_dashboard_figs(summary, details)
-            if fig_heat:
+            if fig_trend:
                 row1 = st.columns(2)
                 with row1[0]:
                     st.pyplot(fig_pie, use_container_width=True)
@@ -2376,12 +2386,14 @@ elif nav == "Dashboard":
                 interactions["Evaluation Date"] = pd.to_datetime(interactions.get("Evaluation Date"), errors="coerce")
                 detail_fail = details[details.get("Result", "").astype(str).str.lower() == "fail"].copy()
                 if not detail_fail.empty:
-                    first_fail = detail_fail.groupby("Evaluation ID", as_index=False).first()[["Evaluation ID", "Parameter"]]
-                    first_fail = first_fail.rename(columns={"Parameter": "First Failed Parameter"})
+                    detail_fail["Parameter"] = detail_fail.get("Parameter", "").fillna("").astype(str).str.strip()
+                    failed_params = detail_fail.groupby("Evaluation ID")["Parameter"].apply(
+                        lambda x: " | ".join(sorted(dict.fromkeys([p for p in x if p]))) if any([p for p in x if p]) else "No Failed Parameters"
+                    ).reset_index(name="Failed Parameters")
                 else:
-                    first_fail = pd.DataFrame(columns=["Evaluation ID", "First Failed Parameter"])
+                    failed_params = pd.DataFrame(columns=["Evaluation ID", "Failed Parameters"])
 
-                interactions = interactions.merge(first_fail, on="Evaluation ID", how="left")
+                interactions = interactions.merge(failed_params, on="Evaluation ID", how="left")
                 if "Reaudit" not in interactions.columns:
                     interactions["Reaudit"] = ""
                 critical_ids = details[
@@ -2417,7 +2429,7 @@ elif nav == "Dashboard":
                         "QA Name",
                         "Auditor",
                         "Overall Score %",
-                        "First Failed Parameter",
+                        "Failed Parameters",
                         "Trigger Reason",
                     ]
                     for c in out_cols:
