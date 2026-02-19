@@ -969,7 +969,7 @@ def email_html_inline(record: dict) -> str:
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:0;padding:0;border-collapse:collapse;background:#f3f4f6;">
       <tr>
         <td align="center" style="padding:24px 12px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" width="700" style="width:700px;max-width:700px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);overflow:hidden;font-family:Arial,sans-serif;color:#111827;">
+          <table role="presentation" cellpadding="0" cellspacing="0" width="700" style="width:700px;max-width:700px;border-collapse:separate;border-spacing:0;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 6px 18px rgba(15,23,42,0.08);overflow:hidden;font-family:Candara, Segoe UI, sans-serif;color:#111827;">
             <tr>
               <td style="background:#0b1f3a;color:#ffffff;padding:12px 18px;">
                 <div style="font-size:20px;line-height:1.25;font-weight:700;">{DAMAC_TITLE} | ATA Evaluation</div>
@@ -1205,6 +1205,174 @@ def pdf_evaluation(record: dict) -> bytes:
     pdf.cell(0, 8, f"Reaudit Status: {record['reaudit']}", ln=True)
     out = pdf.output(dest="S")
     return bytes(out) if isinstance(out, (bytes, bytearray)) else out.encode("latin-1")
+# ================= NEW INTELLIGENCE LAYER =================
+def compute_auditor_intelligence(summary_df: pd.DataFrame, details_df: pd.DataFrame) -> pd.DataFrame:
+    cols = [
+        "Auditor",
+        "Avg Score",
+        "Failure Rate",
+        "Reaudit Ratio",
+        "Volatility",
+        "Repeat Failure Count",
+    ]
+    if summary_df is None or summary_df.empty:
+        return pd.DataFrame(columns=cols)
+
+    summary = summary_df.copy()
+    if "Auditor" not in summary.columns:
+        return pd.DataFrame(columns=cols)
+
+    summary["Auditor"] = summary["Auditor"].fillna("Unknown").astype(str).str.strip()
+    summary["Evaluation Date"] = pd.to_datetime(summary.get("Evaluation Date"), errors="coerce")
+    for col in ["Overall Score %", "Failed Points", "Total Points"]:
+        if col in summary.columns:
+            summary[col] = pd.to_numeric(summary[col], errors="coerce").fillna(0)
+        else:
+            summary[col] = 0
+
+    summary["_reaudit_yes"] = summary.get("Reaudit", "").astype(str).str.strip().str.lower().eq("yes")
+    grp = summary.groupby("Auditor", dropna=False)
+    agg = grp.agg(
+        avg_score=("Overall Score %", "mean"),
+        fail_points=("Failed Points", "sum"),
+        total_points=("Total Points", "sum"),
+        reaudit_ratio=("_reaudit_yes", "mean"),
+        volatility=("Overall Score %", "std"),
+    )
+    agg["Failure Rate"] = (agg["fail_points"] / agg["total_points"].replace(0, pd.NA)).fillna(0) * 100
+    agg["Reaudit Ratio"] = agg["reaudit_ratio"].fillna(0) * 100
+    agg["Volatility"] = agg["volatility"].fillna(0)
+
+    repeat_counts = pd.Series(dtype=float)
+    if details_df is not None and not details_df.empty:
+        det = details_df.copy()
+        det["Auditor"] = det.get("Auditor", "Unknown").fillna("Unknown").astype(str).str.strip()
+        det["Parameter"] = det.get("Parameter", "").fillna("").astype(str).str.strip()
+        det["Result"] = det.get("Result", "").fillna("").astype(str).str.strip()
+        det["Evaluation Date"] = pd.to_datetime(det.get("Evaluation Date"), errors="coerce")
+        latest_dt = det["Evaluation Date"].max()
+        if pd.notna(latest_dt):
+            window_start = latest_dt - pd.Timedelta(days=30)
+            det = det[det["Evaluation Date"] >= window_start]
+        fail_det = det[(det["Result"].str.lower() == "fail") & (det["Parameter"] != "")]
+        if not fail_det.empty:
+            by_param = fail_det.groupby(["Auditor", "Parameter"], dropna=False).size().reset_index(name="fail_count")
+            repeated = by_param[by_param["fail_count"] >= 3]
+            if not repeated.empty:
+                repeat_counts = repeated.groupby("Auditor").size()
+
+    out = pd.DataFrame(index=agg.index)
+    out["Avg Score"] = agg["avg_score"].fillna(0)
+    out["Failure Rate"] = agg["Failure Rate"].fillna(0)
+    out["Reaudit Ratio"] = agg["Reaudit Ratio"].fillna(0)
+    out["Volatility"] = agg["Volatility"].fillna(0)
+    out["Repeat Failure Count"] = repeat_counts.reindex(out.index).fillna(0).astype(int)
+    out = out.reset_index().rename(columns={"index": "Auditor"})
+    return out[cols]
+
+
+def compute_risk_flags(auditor_df: pd.DataFrame, details_df: pd.DataFrame) -> pd.DataFrame:
+    cols = ["Auditor", "Risk Points", "Risk Level", "QA Intervention Required", "Coaching Required"]
+    if auditor_df is None or auditor_df.empty:
+        return pd.DataFrame(columns=cols)
+
+    aud = auditor_df.copy()
+    aud["Auditor"] = aud["Auditor"].fillna("Unknown").astype(str).str.strip()
+    for c in ["Avg Score", "Repeat Failure Count", "Reaudit Ratio"]:
+        aud[c] = pd.to_numeric(aud.get(c, 0), errors="coerce").fillna(0)
+
+    critical_fail = pd.Series(0, index=aud["Auditor"].values, dtype=int)
+    if details_df is not None and not details_df.empty:
+        det = details_df.copy()
+        det["Auditor"] = det.get("Auditor", "Unknown").fillna("Unknown").astype(str).str.strip()
+        det["Parameter"] = det.get("Parameter", "").fillna("").astype(str).str.strip().str.lower()
+        det["Result"] = det.get("Result", "").fillna("").astype(str).str.strip().str.lower()
+        crit = det[(det["Parameter"] == "critical error identification") & (det["Result"] == "fail")]
+        if not crit.empty:
+            critical_fail = crit.groupby("Auditor").size().reindex(aud["Auditor"]).fillna(0).astype(int).values
+
+    points = (
+        (aud["Avg Score"] < 85).astype(int) * 2
+        + (aud["Repeat Failure Count"] >= 1).astype(int) * 2
+        + (pd.Series(critical_fail, index=aud.index) > 0).astype(int) * 3
+        + (aud["Reaudit Ratio"] > 30).astype(int) * 1
+    )
+
+    out = pd.DataFrame({"Auditor": aud["Auditor"], "Risk Points": points.astype(int)})
+    out["Risk Level"] = out["Risk Points"].map(lambda x: "Low" if x <= 1 else ("Moderate" if x <= 3 else "High"))
+    out["QA Intervention Required"] = out["Risk Level"].eq("High")
+    out["Coaching Required"] = out["Risk Level"].isin(["Moderate", "High"])
+    return out[cols]
+
+
+def compute_health_index(auditor_df: pd.DataFrame, details_df: pd.DataFrame) -> pd.DataFrame:
+    cols = ["Auditor", "Health Index", "Health Classification", "Critical Fail Rate"]
+    if auditor_df is None or auditor_df.empty:
+        return pd.DataFrame(columns=cols)
+
+    aud = auditor_df.copy()
+    aud["Auditor"] = aud["Auditor"].fillna("Unknown").astype(str).str.strip()
+    for c in ["Avg Score", "Failure Rate", "Reaudit Ratio"]:
+        aud[c] = pd.to_numeric(aud.get(c, 0), errors="coerce").fillna(0)
+
+    critical_fail_rate = pd.Series(0.0, index=aud["Auditor"].values)
+    if details_df is not None and not details_df.empty:
+        det = details_df.copy()
+        det["Auditor"] = det.get("Auditor", "Unknown").fillna("Unknown").astype(str).str.strip()
+        det["Parameter"] = det.get("Parameter", "").fillna("").astype(str).str.strip().str.lower()
+        det["Result"] = det.get("Result", "").fillna("").astype(str).str.strip().str.lower()
+        crit_all = det[det["Parameter"] == "critical error identification"]
+        if not crit_all.empty:
+            crit_rate = (crit_all["Result"].eq("fail").groupby(crit_all["Auditor"]).mean() * 100)
+            critical_fail_rate = crit_rate.reindex(aud["Auditor"]).fillna(0)
+
+    out = pd.DataFrame({"Auditor": aud["Auditor"]})
+    out["Critical Fail Rate"] = pd.to_numeric(pd.Series(critical_fail_rate).values, errors="coerce").fillna(0)
+    out["Health Index"] = (
+        0.40 * aud["Avg Score"]
+        + 0.25 * (100 - aud["Failure Rate"])
+        + 0.20 * (100 - out["Critical Fail Rate"])
+        + 0.15 * (100 - aud["Reaudit Ratio"])
+    ).clip(0, 100)
+    out["Health Classification"] = out["Health Index"].map(
+        lambda x: "Excellent" if x >= 90 else ("Stable" if x >= 75 else ("Watchlist" if x >= 60 else "High Risk"))
+    )
+    return out[cols]
+
+
+def generate_coaching_summary(evaluation_record: dict, auditor_metrics: dict | pd.Series | None) -> str:
+    details = evaluation_record.get("details", pd.DataFrame())
+    if details is None or details.empty:
+        return "No parameter details available to generate coaching summary."
+
+    det = details.copy()
+    det["Parameter"] = det.get("Parameter", "").fillna("").astype(str)
+    det["Result"] = det.get("Result", "").fillna("").astype(str)
+    passed = det.loc[det["Result"].str.lower() == "pass", "Parameter"].dropna().tolist()
+    failed = det.loc[det["Result"].str.lower() == "fail", "Parameter"].dropna().tolist()
+    repeated = det.loc[det["Result"].str.lower() == "fail", "Parameter"].value_counts()
+    repeated = repeated[repeated >= 2].index.tolist()
+
+    metrics = dict(auditor_metrics) if isinstance(auditor_metrics, (dict, pd.Series)) else {}
+    risk_level = str(metrics.get("Risk Level", "Low"))
+    follow_up = "7 days" if risk_level == "High" else ("14 days" if risk_level == "Moderate" else "Monitor next cycle")
+
+    TEMPX
+    gaps = "\n".join([f"- {p}" for p in failed]) if failed else "- No failed parameters in this cycle."
+    risk_areas = "\n".join([f"- {p}" for p in repeated]) if repeated else "- No repeated failure patterns detected in this evaluation."
+    improv = "\n".join([f"- {p}: Revisit script standard, run targeted role-play, and QA recheck in next calibration." for p in failed]) if failed else "- Continue current best practices and maintain consistency."
+
+    return (
+        f"Coaching Summary | Evaluation ID: {evaluation_record.get('evaluation_id', '')}\n"
+        f"Auditor: {evaluation_record.get('auditor', '')}\n"
+        f"Risk Level: {risk_level}\n\n"
+        f"Strengths\n{strengths}\n\n"
+        f"Gaps\n{gaps}\n\n"
+        f"Risk Areas\n{risk_areas}\n\n"
+        f"Improvement Plan\n{improv}\n\n"
+        f"Follow-up Timeline\n- {follow_up}"
+    )
+
 # -------------------- DASHBOARD LOGIC --------------------
 def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFrame | None = None):
     if summary is None or details is None:
@@ -1250,7 +1418,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     ax.set_xticks(trend_x)
     ax.set_xticklabels([d.strftime("%b-%y") for d in trend_x])
     for x, y in zip(trend_x, trend.values * 100):
-        ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 8), ha="center", color=theme["text"])
+        ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", color=theme["accent"], fontweight="bold")
     style_chart(ax, theme)
     fig_trend.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
@@ -1310,10 +1478,10 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         colors=pass_fail_colors,
         startangle=90,
         radius=0.78,
-        labeldistance=1.08,
-        pctdistance=0.82,
+        labeldistance=1.30,
+        pctdistance=1.12,
         wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
-        textprops={"color": theme["text"], "fontsize": 12, "weight": "medium"},
+        textprops={"color": theme["text"], "fontsize": 11, "weight": "bold"},
     )
     axp.set_title("Pass vs Fail Points", fontweight="bold", fontsize=12)
     axp.set_aspect("equal")
@@ -1426,10 +1594,10 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         startangle=90,
         colors=theme["pie_alt"][: len(disp_counts.index)],
         radius=0.78,
-        labeldistance=1.08,
-        pctdistance=0.82,
+        labeldistance=1.30,
+        pctdistance=1.12,
         wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
-        textprops={"color": theme["text"], "fontsize": 12, "weight": "medium"},
+        textprops={"color": theme["text"], "fontsize": 11, "weight": "bold"},
     )
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=12)
     axd.set_aspect("equal")
@@ -1536,6 +1704,7 @@ for key in [
     "form_key_id",
     "save_in_progress",
     "save_request_key",
+    "coaching_summary_text",
 ]:
     if key not in st.session_state:
         if key == "prefill":
@@ -1996,6 +2165,30 @@ elif nav == "View":
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                 )
+
+            coaching_cols = st.columns([1, 1])
+            with coaching_cols[0]:
+                if st.button("🧠 Generate Coaching Summary", use_container_width=True):
+                    auditor_base = compute_auditor_intelligence(summary, details)
+                    auditor_risk = compute_risk_flags(auditor_base, details)
+                    row_metrics = auditor_risk[auditor_risk["Auditor"].astype(str).str.strip() == str(row["Auditor"]).strip()]
+                    metric_payload = row_metrics.iloc[0].to_dict() if not row_metrics.empty else {"Risk Level": "Low"}
+                    st.session_state.coaching_summary_text = generate_coaching_summary(rec, metric_payload)
+            if st.session_state.get("coaching_summary_text"):
+                st.text_area(
+                    "Coaching Summary",
+                    value=st.session_state.get("coaching_summary_text", ""),
+                    height=260,
+                    key=f"coach_text_{sel_id}",
+                )
+                with coaching_cols[1]:
+                    copy_html_to_clipboard_button(
+                        "📋 Copy Coaching Summary",
+                        f"<pre>{st.session_state.get('coaching_summary_text', '')}</pre>",
+                        f"copy_coach_{sel_id}",
+                        active_theme,
+                    )
+
             st.markdown("<div class='group-title'>Parameter Breakdown</div>", unsafe_allow_html=True)
             det = details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()]
             if not det.empty:
@@ -2085,6 +2278,42 @@ elif nav == "Dashboard":
                     st.pyplot(fig_heat, use_container_width=True)
                 with row5[1]:
                     st.pyplot(fig_failed, use_container_width=True)
+
+                st.markdown("### Auditor Performance Intelligence")
+                auditor_intel = compute_auditor_intelligence(summary, details)
+                risk_df = compute_risk_flags(auditor_intel, details)
+                health_df = compute_health_index(auditor_intel, details)
+                ranking_df = auditor_intel.merge(health_df[["Auditor", "Health Index", "Health Classification"]], on="Auditor", how="left")
+                ranking_df = ranking_df.sort_values("Health Index", ascending=False)
+                st.dataframe(ranking_df, use_container_width=True, hide_index=True)
+
+                risk_table = risk_df.copy()
+                if not risk_table.empty:
+                    def _risk_style(v):
+                        return (
+                            "background-color:#dcfce7;color:#166534;font-weight:bold" if v == "Low" else
+                            "background-color:#fef3c7;color:#92400e;font-weight:bold" if v == "Moderate" else
+                            "background-color:#fee2e2;color:#991b1b;font-weight:bold"
+                        )
+                    st.dataframe(risk_table.style.map(_risk_style, subset=["Risk Level"]), use_container_width=True, hide_index=True)
+                else:
+                    st.dataframe(risk_table, use_container_width=True, hide_index=True)
+
+                if not health_df.empty:
+                    chart_theme = get_chart_theme()
+                    health_plot = health_df.sort_values("Health Index", ascending=True)
+                    fig_hi, ax_hi = plt.subplots(figsize=(8, 4.5))
+                    ax_hi.barh(health_plot["Auditor"], health_plot["Health Index"], color=chart_theme["primary"])
+                    ax_hi.set_xlim(0, 100)
+                    ax_hi.set_title("Auditor Health Index", fontweight="bold", fontsize=11)
+                    ax_hi.set_xlabel("Health Index")
+                    for i, v in enumerate(health_plot["Health Index"]):
+                        ax_hi.text(v + 1, i, f"{v:.1f}", va="center", color=chart_theme["text"], fontsize=9)
+                    style_chart(ax_hi, chart_theme)
+                    fig_hi.patch.set_facecolor(chart_theme["bg"])
+                    plt.tight_layout()
+                    st.pyplot(fig_hi, use_container_width=True)
+
                 st.divider()
                 st.markdown('<div class="dashboard-action-btn">', unsafe_allow_html=True)
                 d1, d2, d3 = st.columns(3)
