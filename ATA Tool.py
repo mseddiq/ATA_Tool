@@ -179,6 +179,8 @@ def read_google_summary():
     ws = sheet.worksheet("Summary")
     data = ws.get_all_records()
     df = _standardize_columns(pd.DataFrame(data), SUMMARY_COLUMNS)
+    if "Evaluation ID" in df.columns:
+        df["Evaluation ID"] = df["Evaluation ID"].astype(str).str.strip()
     for col in ["Passed Points", "Failed Points", "Total Points", "Overall Score %"]:
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0)
@@ -190,7 +192,10 @@ def read_google_details():
     sheet = connect_google_sheet()
     ws = sheet.worksheet("Details")
     data = ws.get_all_records()
-    return _standardize_columns(pd.DataFrame(data), DETAILS_COLUMNS)
+    df = _standardize_columns(pd.DataFrame(data), DETAILS_COLUMNS)
+    if "Evaluation ID" in df.columns:
+        df["Evaluation ID"] = df["Evaluation ID"].astype(str).str.strip()
+    return df
 DAMAC_TITLE = "DAMAC Properties"
 DAMAC_SUB1 = "Quality Assurance"
 DAMAC_SUB2 = "Telesales Division"
@@ -687,7 +692,7 @@ def write_formatted_report(
         wb.save(filename)
         return
     details_lookup = {
-        eval_id: details[details["Evaluation ID"] == eval_id]
+        eval_id: details[details["Evaluation ID"].astype(str).str.strip() == str(eval_id).strip()]
         for eval_id in summary["Evaluation ID"].dropna().unique().tolist()
     }
     for row_idx, row_data in enumerate(summary.to_dict(orient="records"), start=data_start_row):
@@ -859,11 +864,7 @@ def copy_to_clipboard_button(label: str, text_to_copy: str, key: str, theme: dic
     <script>
       document.getElementById("btn-{key}").onclick = () => {{
         const text = `{safe_text}`;
-        const htmlBlob = new Blob([text], {{ type: "text/html" }});
-        const plainBlob = new Blob([text], {{ type: "text/plain" }});
-        navigator.clipboard.write([
-          new ClipboardItem({{ "text/html": htmlBlob, "text/plain": plainBlob }})
-        ]).then(() => {{
+        navigator.clipboard.writeText(text).then(() => {{
           const el = document.getElementById("copystatus-{key}");
           if(el) el.innerText = "Copied!";
         }});
@@ -1231,9 +1232,10 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     # 6. Score per Month
     fig_score_month, axsm = plt.subplots(figsize=(6, 4))
     score_by_month = summary.groupby("Month")["Overall Score %"].mean().sort_index()
-    score_month_labels = [
-        pd.Period(m).to_timestamp().strftime("%b-%y") for m in score_by_month.index
-    ]
+    score_month_labels = (
+        pd.to_datetime(score_by_month.index.astype(str), errors="coerce")
+        .strftime("%b-%y")
+    )
     axsm.bar(score_month_labels, score_by_month.values, color=theme["primary"])
     axsm.set_title("Average Score by Month (%)", fontweight="bold", fontsize=11)
     axsm.tick_params(axis="x", rotation=20)
@@ -1255,9 +1257,10 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     # 8. Audits per Month
     fig_audit_month, axam = plt.subplots(figsize=(6, 4))
     audits_by_month = summary.groupby("Month").size().sort_index()
-    audit_month_labels = [
-        pd.Period(m).to_timestamp().strftime("%b-%y") for m in audits_by_month.index
-    ]
+    audit_month_labels = (
+        pd.to_datetime(audits_by_month.index.astype(str), errors="coerce")
+        .strftime("%b-%y")
+    )
     axam.bar(audit_month_labels, audits_by_month.values, color=theme["primary"])
     axam.set_title("Audits per Month", fontweight="bold", fontsize=11)
     axam.tick_params(axis="x", rotation=20)
@@ -1753,7 +1756,7 @@ elif nav == "View":
             ).tolist()
             sel_label = st.selectbox("Select Record to View Details", record_options)
             sel_id = sel_label.split(" | ")[1]
-            selected_rows = summary[summary["Evaluation ID"].apply(norm_id) == norm_id(sel_id)]
+            selected_rows = summary[summary["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()]
             if selected_rows.empty:
                 st.error("Selected record was not found. Please refresh and try again.")
                 st.stop()
@@ -1788,12 +1791,12 @@ elif nav == "View":
                 "call_duration": row["Call Duration"],
                 "call_disposition": row["Call Disposition"],
                 "overall_score": row["Overall Score %"],
-                "details": details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)],
+                "details": details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()],
             }
             export_buf = io.BytesIO()
             with pd.ExcelWriter(export_buf, engine="openpyxl") as writer:
                 pd.DataFrame([row]).to_excel(writer, sheet_name="Summary", index=False)
-                details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)].to_excel(
+                details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()].to_excel(
                     writer, sheet_name="Details", index=False
                 )
             export_buf.seek(0)
@@ -1827,7 +1830,7 @@ elif nav == "View":
                         "call_duration": row["Call Duration"],
                         "call_disposition": row["Call Disposition"],
                         "reaudit": row["Reaudit"],
-                        "details_df": details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)],
+                        "details_df": details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()],
                     }
                     st.session_state.goto_nav = "Evaluation"
                     st.rerun()
@@ -1845,7 +1848,7 @@ elif nav == "View":
                     use_container_width=True,
                 )
             st.markdown("<div class='group-title'>Parameter Breakdown</div>", unsafe_allow_html=True)
-            det = details[details["Evaluation ID"].apply(norm_id) == norm_id(sel_id)]
+            det = details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()]
             if not det.empty:
                 for grp in ["ACCURACY_SUB", "EVAL_QUALITY"]:
                     with st.expander(grp.replace("_", " ").title(), expanded=True):
@@ -1885,7 +1888,11 @@ elif nav == "Dashboard":
             summary = summary[summary["Evaluation Date"].dt.strftime("%d-%b") == date_filter]
         details = details_all.copy()
         if "Evaluation ID" in summary.columns:
-            details = details[details["Evaluation ID"].isin(summary["Evaluation ID"].unique())]
+            details = details[
+                details["Evaluation ID"].astype(str).str.strip().isin(
+                    summary["Evaluation ID"].astype(str).str.strip().unique()
+                )
+            ]
         if summary.empty or details.empty:
             st.info("No data available for analysis.")
         else:
