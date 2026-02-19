@@ -358,9 +358,27 @@ def apply_theme_css(theme: dict):
     .sidebar-nav-btn [data-testid="stButton"] > button {{ transition: all 0.25s ease; }}
     .sidebar-nav-btn [data-testid="stButton"] > button:hover {{ transform: translateY(-4px); box-shadow: 0 12px 24px {stat_hover_shadow}; }}
 
-    .stButton>button, .stDownloadButton>button, .stForm [data-testid="stFormSubmitButton"]>button {{
-        width: 100%; min-height: 44px; border-radius: 10px; border: 1px solid var(--border) !important;
-        background: var(--btn-bg) !important; color: var(--btn-text) !important; font-weight: 700; padding: 0.5rem 1rem;
+    .stButton>button,
+    .stDownloadButton>button,
+    .stForm [data-testid="stFormSubmitButton"]>button {{
+
+        width: 100%;
+        height: 52px;
+        min-height: 52px;
+        max-height: 52px;
+
+        border-radius: 10px;
+        border: 1px solid var(--border) !important;
+        background: var(--btn-bg) !important;
+        color: var(--btn-text) !important;
+
+        font-weight: 700;
+        padding: 0 16px;
+
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
         transition: all 0.25s ease;
         cursor: pointer;
     }}
@@ -879,13 +897,10 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         box-shadow: 0 12px 24px rgba(0,0,0,0.25);
         filter: brightness(1.05);
       }}
-      #status-{key} {{
-        font-family:sans-serif;
-        font-size:12px;
-        margin-top:4px;
-        text-align:center;
-        color:{theme.get('button_text', '#000000')};
-      }}
+      #status-{key} {
+        position:absolute;
+        left:-9999px;
+      }
       #status-{key}.err {{ color:{theme.get('fail', '#ef4444')}; }}
     </style>
 
@@ -940,7 +955,7 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
     </script>
     """
 
-    components.html(js, height=88)
+    components.html(js, height=52)
 
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
@@ -1453,7 +1468,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     # 1. Trend Chart (Failure Rate)
     trend = summary.groupby("Month")["Failure Rate"].mean().sort_index()
     trend_x = trend.index.to_timestamp()
-    fig_trend, ax = plt.subplots(figsize=(6, 4))
+    fig_trend, ax = plt.subplots(figsize=(7, 4.5))
     ax.plot(trend_x, trend.values * 100, marker="o", color=theme["primary"], linewidth=2, markersize=6)
     ax.fill_between(trend_x, trend.values * 100, color=theme["primary"], alpha=0.15)
     ax.set_title("Failure Rate Trend (%)", fontweight="bold", fontsize=11)
@@ -1480,7 +1495,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
             aggfunc="count",
             fill_value=0,
         )
-    fig_heat, axh = plt.subplots(figsize=(6, 4))
+    fig_heat, axh = plt.subplots(figsize=(7, 4.5))
     if heat.empty:
         axh.text(0.5, 0.5, "No failures recorded", ha="center", va="center", color=theme["text"])
         axh.axis("off")
@@ -1509,7 +1524,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_heat.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 3. Pass vs Fail Pie Chart
-    pie_figsize = (6, 6)
+    pie_figsize = (7, 4.5)
     pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
     fail_points = summary["Failed Points"].sum() if "Failed Points" in summary.columns else 0
     fig_pie, axp = plt.subplots(figsize=pie_figsize)
@@ -1535,7 +1550,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_pie.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 4. QA Average Scores
-    fig_qa, axq = plt.subplots(figsize=(6, 4))
+    fig_qa, axq = plt.subplots(figsize=(7, 4.5))
     qa_scores = summary.groupby("QA Name")["Overall Score %"].mean().sort_values(ascending=False)
     axq.bar(qa_scores.index, qa_scores.values, color=theme["primary"])
     axq.set_title("QA Average Score (%)", fontweight="bold", fontsize=11)
@@ -1546,7 +1561,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_qa.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 5. Score per Date
-    fig_score_date, axsd = plt.subplots(figsize=(6, 4))
+    fig_score_date, axsd = plt.subplots(figsize=(7, 4.5))
     score_by_date = summary.groupby(summary["Evaluation Date"].dt.date)["Overall Score %"].mean()
     score_date_labels = [pd.to_datetime(d).strftime("%d-%b") for d in score_by_date.index]
     axsd.bar(score_date_labels, score_by_date.values, color=theme["accent"])
@@ -1557,7 +1572,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_score_date.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 6. Score per Month
-    fig_score_month, axsm = plt.subplots(figsize=(6, 4))
+    fig_score_month, axsm = plt.subplots(figsize=(7, 4.5))
     score_by_month = (
         summary
         .assign(Month=pd.to_datetime(summary["Evaluation Date"], errors="coerce").dt.to_period("M"))
@@ -1577,7 +1592,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_score_month.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 7. Audits per Date
-    fig_audit_date, axad = plt.subplots(figsize=(6, 4))
+    fig_audit_date, axad = plt.subplots(figsize=(7, 4.5))
     audits_by_date = summary.groupby(summary["Evaluation Date"].dt.date).size()
     audit_date_labels = [pd.to_datetime(d).strftime("%d-%b") for d in audits_by_date.index]
     axad.bar(audit_date_labels, audits_by_date.values, color=theme["accent"])
@@ -1588,7 +1603,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_audit_date.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 8. Audits per Month
-    fig_audit_month, axam = plt.subplots(figsize=(6, 4))
+    fig_audit_month, axam = plt.subplots(figsize=(7, 4.5))
     audits_by_month = (
         summary
         .assign(Month=pd.to_datetime(summary["Evaluation Date"], errors="coerce").dt.to_period("M"))
@@ -1608,7 +1623,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_audit_month.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 9. Most Failed Parameters
-    fig_failed, axf = plt.subplots(figsize=(6, 4))
+    fig_failed, axf = plt.subplots(figsize=(7, 4.5))
     failed_params = (
         details[details["Result"] == "Fail"]["Parameter"]
         .value_counts()
@@ -1627,7 +1642,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 10. Audits per Disposition (HORIZONTAL BAR)
-    fig_disp, axd = plt.subplots(figsize=(6, 4))
+    fig_disp, axd = plt.subplots(figsize=(7, 4.5))
 
     disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts().sort_values()
 
@@ -2329,31 +2344,20 @@ elif nav == "Dashboard":
                 _details_unused,
             ) = build_dashboard_figs(summary, details)
             if fig_trend:
-                row1 = st.columns(2)
-                with row1[0]:
-                    st.pyplot(fig_pie, use_container_width=True)
-                with row1[1]:
-                    st.pyplot(fig_disp, use_container_width=True)
-                row2 = st.columns(2)
-                with row2[0]:
-                    st.pyplot(fig_trend, use_container_width=True)
-                with row2[1]:
-                    st.pyplot(fig_qa, use_container_width=True)
-                row3 = st.columns(2)
-                with row3[0]:
-                    st.pyplot(fig_score_month, use_container_width=True)
-                with row3[1]:
-                    st.pyplot(fig_score_date, use_container_width=True)
-                row4 = st.columns(2)
-                with row4[0]:
-                    st.pyplot(fig_audit_month, use_container_width=True)
-                with row4[1]:
-                    st.pyplot(fig_audit_date, use_container_width=True)
-                row5 = st.columns(2)
-                with row5[0]:
-                    st.pyplot(fig_heat, use_container_width=True)
-                with row5[1]:
-                    st.pyplot(fig_failed, use_container_width=True)
+                rows = [
+                    (fig_pie, fig_disp),
+                    (fig_trend, fig_qa),
+                    (fig_score_month, fig_score_date),
+                    (fig_audit_month, fig_audit_date),
+                    (fig_heat, fig_failed),
+                ]
+
+                for left_fig, right_fig in rows:
+                    col1, col2 = st.columns(2, gap="large")
+                    with col1:
+                        st.pyplot(left_fig, use_container_width=False)
+                    with col2:
+                        st.pyplot(right_fig, use_container_width=False)
 
                 st.markdown("### Auditor Performance Intelligence")
                 auditor_intel = compute_auditor_intelligence(summary, details)
