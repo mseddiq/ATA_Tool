@@ -1308,15 +1308,18 @@ def compute_risk_flags(auditor_df: pd.DataFrame, details_df: pd.DataFrame) -> pd
 def compute_health_index(auditor_df: pd.DataFrame, details_df: pd.DataFrame) -> pd.DataFrame:
     cols = ["Auditor", "Health Index", "Health Classification", "Critical Fail Rate"]
     if auditor_df is None or auditor_df.empty:
-        return pd.DataFrame(columns=cols)
+        return pd.DataFrame()
+
+    if details_df is None:
+        details_df = pd.DataFrame()
 
     aud = auditor_df.copy()
     aud["Auditor"] = aud["Auditor"].fillna("Unknown").astype(str).str.strip()
     for c in ["Avg Score", "Failure Rate", "Reaudit Ratio"]:
         aud[c] = pd.to_numeric(aud.get(c, 0), errors="coerce").fillna(0)
 
-    critical_fail_rate = pd.Series(0.0, index=aud["Auditor"].values)
-    if details_df is not None and not details_df.empty:
+    critical_fail_rate = pd.Series(0.0, index=aud["Auditor"])
+    if not details_df.empty:
         det = details_df.copy()
         det["Auditor"] = det.get("Auditor", "Unknown").fillna("Unknown").astype(str).str.strip()
         det["Parameter"] = det.get("Parameter", "").fillna("").astype(str).str.strip().str.lower()
@@ -1327,7 +1330,9 @@ def compute_health_index(auditor_df: pd.DataFrame, details_df: pd.DataFrame) -> 
             critical_fail_rate = crit_rate.reindex(aud["Auditor"]).fillna(0)
 
     out = pd.DataFrame({"Auditor": aud["Auditor"]})
-    out["Critical Fail Rate"] = pd.to_numeric(pd.Series(critical_fail_rate).values, errors="coerce").fillna(0)
+    out["Critical Fail Rate"] = pd.to_numeric(
+        critical_fail_rate, errors="coerce"
+    ).fillna(0)
     out["Health Index"] = (
         0.40 * aud["Avg Score"]
         + 0.25 * (100 - aud["Failure Rate"])
@@ -1341,8 +1346,14 @@ def compute_health_index(auditor_df: pd.DataFrame, details_df: pd.DataFrame) -> 
 
 
 def generate_coaching_summary(evaluation_record: dict, auditor_metrics: dict | pd.Series | None) -> str:
+    if evaluation_record is None:
+        return "No evaluation data available."
+
+    if auditor_metrics is None:
+        auditor_metrics = {}
+
     details = evaluation_record.get("details", pd.DataFrame())
-    if details is None or details.empty:
+    if details is None or not isinstance(details, pd.DataFrame) or details.empty:
         return "No parameter details available to generate coaching summary."
 
     det = details.copy()
@@ -1357,7 +1368,7 @@ def generate_coaching_summary(evaluation_record: dict, auditor_metrics: dict | p
     risk_level = str(metrics.get("Risk Level", "Low"))
     follow_up = "7 days" if risk_level == "High" else ("14 days" if risk_level == "Moderate" else "Monitor next cycle")
 
-    TEMPX
+    strengths = "\n".join([f"- {p}" for p in passed]) if passed else "- No clear strengths captured in this cycle."
     gaps = "\n".join([f"- {p}" for p in failed]) if failed else "- No failed parameters in this cycle."
     risk_areas = "\n".join([f"- {p}" for p in repeated]) if repeated else "- No repeated failure patterns detected in this evaluation."
     improv = "\n".join([f"- {p}: Revisit script standard, run targeted role-play, and QA recheck in next calibration." for p in failed]) if failed else "- Continue current best practices and maintain consistency."
