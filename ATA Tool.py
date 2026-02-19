@@ -173,7 +173,6 @@ def connect_google_sheet():
     return sheet
 
 
-@st.cache_data
 def read_google_summary():
     sheet = connect_google_sheet()
     ws = sheet.worksheet("Summary")
@@ -187,7 +186,6 @@ def read_google_summary():
     return df
 
 
-@st.cache_data
 def read_google_details():
     sheet = connect_google_sheet()
     ws = sheet.worksheet("Details")
@@ -732,15 +730,24 @@ def write_formatted_report(
         ws.column_dimensions[ws.cell(row=label_row, column=idx).column_letter].width = 18
     wb.save(filename)
 def upsert_google_sheet(record: dict):
-    summary_existing = read_google_summary()
-    details_existing = read_google_details()
     rid = norm_id(record["evaluation_id"])
+    if not rid:
+        raise ValueError("Invalid Evaluation ID for upsert")
 
-    summary_existing["_rid"] = summary_existing["Evaluation ID"].apply(norm_id)
-    summary_existing = summary_existing[summary_existing["_rid"] != rid].drop(columns=["_rid"], errors="ignore")
+    sheet = connect_google_sheet()
+    ws_summary = sheet.worksheet("Summary")
+    ws_details = sheet.worksheet("Details")
 
-    details_existing["_rid"] = details_existing["Evaluation ID"].apply(norm_id)
-    details_existing = details_existing[details_existing["_rid"] != rid].drop(columns=["_rid"], errors="ignore")
+    # Always read fresh data from Google Sheets to avoid stale-cache duplication.
+    summary_existing = _standardize_columns(pd.DataFrame(ws_summary.get_all_records()), SUMMARY_COLUMNS)
+    details_existing = _standardize_columns(pd.DataFrame(ws_details.get_all_records()), DETAILS_COLUMNS)
+
+    if "Evaluation ID" in summary_existing.columns:
+        summary_existing["Evaluation ID"] = summary_existing["Evaluation ID"].astype(str).str.strip()
+        summary_existing = summary_existing[summary_existing["Evaluation ID"] != rid]
+    if "Evaluation ID" in details_existing.columns:
+        details_existing["Evaluation ID"] = details_existing["Evaluation ID"].astype(str).str.strip()
+        details_existing = details_existing[details_existing["Evaluation ID"] != rid]
 
     summary_row = pd.DataFrame(
         [
@@ -782,10 +789,16 @@ def upsert_google_sheet(record: dict):
     out_summary = pd.concat([summary_existing, summary_row], ignore_index=True)
     out_details = pd.concat([details_existing, details_df], ignore_index=True)
 
-    sheet = connect_google_sheet()
-    _rewrite_google_worksheet(sheet.worksheet("Summary"), out_summary, SUMMARY_COLUMNS)
-    _rewrite_google_worksheet(sheet.worksheet("Details"), out_details, DETAILS_COLUMNS)
-    st.cache_data.clear()
+    # Idempotency/race protection: keep only the latest row(s) for this Evaluation ID.
+    out_summary["Evaluation ID"] = out_summary["Evaluation ID"].astype(str).str.strip()
+    out_summary = out_summary.drop_duplicates(subset=["Evaluation ID"], keep="last")
+    out_details["Evaluation ID"] = out_details["Evaluation ID"].astype(str).str.strip()
+    detail_dedupe_cols = [c for c in ["Evaluation ID", "Group", "Parameter"] if c in out_details.columns]
+    if detail_dedupe_cols:
+        out_details = out_details.drop_duplicates(subset=detail_dedupe_cols, keep="last")
+
+    _rewrite_google_worksheet(ws_summary, out_summary, SUMMARY_COLUMNS)
+    _rewrite_google_worksheet(ws_details, out_details, DETAILS_COLUMNS)
 
 def delete_evaluation(eval_id: str) -> bool:
     rid = norm_id(eval_id)
@@ -1409,6 +1422,7 @@ def reset_evaluation_form() -> None:
     st.session_state.edit_eval_id = ""
     st.session_state.prefill = {}
     st.session_state.form_key_id = uuid4().hex
+    st.session_state.save_in_progress = False
 for key in [
     "edit_mode",
     "edit_eval_id",
@@ -1420,6 +1434,8 @@ for key in [
     "authenticated",
     "theme_mode",
     "form_key_id",
+    "save_in_progress",
+    "save_request_key",
 ]:
     if key not in st.session_state:
         if key == "prefill":
@@ -1432,6 +1448,10 @@ for key in [
             st.session_state[key] = "system"
         elif key == "form_key_id":
             st.session_state[key] = uuid4().hex
+        elif key == "save_in_progress":
+            st.session_state[key] = False
+        elif key == "save_request_key":
+            st.session_state[key] = ""
         else:
             st.session_state[key] = ""
 
@@ -1656,7 +1676,7 @@ elif nav == "Evaluation":
         st.markdown('<div class="eval-action-row">', unsafe_allow_html=True)
         action_cols = st.columns(3 if st.session_state.edit_mode else 2)
         with action_cols[0]:
-            save_clicked = st.form_submit_button("💾 Save Evaluation", use_container_width=True)
+            save_clicked = st.form_submit_button("💾 Save Evaluation", use_container_width=True, disabled=st.session_state.get("save_in_progress", False))
         with action_cols[1]:
             reset_clicked = st.form_submit_button("🔄 Reset Form", use_container_width=True)
         cancel_clicked = False
@@ -1666,13 +1686,18 @@ elif nav == "Evaluation":
         st.markdown("</div>", unsafe_allow_html=True)
         if reset_clicked:
             reset_evaluation_form()
+            st.session_state.save_request_key = ""
             st.session_state.reset_notice = "Form reset."
             st.rerun()
         if cancel_clicked:
             reset_evaluation_form()
+            st.session_state.save_request_key = ""
             st.session_state.goto_nav = "View"
             st.rerun()
         if save_clicked:
+            if st.session_state.get("save_in_progress", False):
+                st.info("Save already in progress. Please wait.")
+                st.stop()
             if "Parameter" not in ed_acc.columns or "Parameter" not in ed_qual.columns:
                 st.error("Unable to save. Please reset the form and try again.")
                 st.stop()
@@ -1681,35 +1706,44 @@ elif nav == "Evaluation":
                 if st.session_state.edit_mode
                 else next_evaluation_id(eval_date.strftime("%Y-%m-%d"))
             )
-            acc_full, qual_full = df_acc.copy(), df_qual.copy()
-            acc_full["Result"], acc_full["Comment"] = ed_acc["Result"].values, ed_acc["Comment"].values
-            qual_full["Result"], qual_full["Comment"] = (
-                ed_qual["Result"].values,
-                ed_qual["Comment"].values,
-            )
-            details_all = pd.concat([acc_full, qual_full], ignore_index=True)
-            metrics = compute_weighted_score(details_all)
-            record = {
-                "evaluation_id": eval_id,
-                "qa_name": qa_name,
-                "auditor": auditor,
-                "evaluation_date": eval_date.strftime("%Y-%m-%d"),
-                "audit_date": audit_date.strftime("%Y-%m-%d"),
-                "reaudit": reaudit,
-                "call_id": call_id,
-                "call_duration": call_dur,
-                "call_disposition": call_disp,
-                "overall_score": metrics["score"],
-                "passed_points": metrics["passed_points"],
-                "failed_points": metrics["failed_points"],
-                "total_points": metrics["total_points"],
-                "details": details_all,
-            }
-            upsert_google_sheet(record)
-            reset_evaluation_form()
-            st.session_state.last_saved_id = eval_id
-            st.session_state.reset_notice = f"Saved Evaluation ID: {eval_id}. Form reset for a new entry."
-            st.rerun()
+            request_key = f"{norm_id(eval_id)}|{eval_date.strftime('%Y-%m-%d')}|{audit_date.strftime('%Y-%m-%d')}|{qa_name}|{auditor}|{call_id}"
+            if st.session_state.get("save_request_key") == request_key:
+                st.info("This evaluation was already saved.")
+                st.stop()
+            st.session_state.save_in_progress = True
+            try:
+                acc_full, qual_full = df_acc.copy(), df_qual.copy()
+                acc_full["Result"], acc_full["Comment"] = ed_acc["Result"].values, ed_acc["Comment"].values
+                qual_full["Result"], qual_full["Comment"] = (
+                    ed_qual["Result"].values,
+                    ed_qual["Comment"].values,
+                )
+                details_all = pd.concat([acc_full, qual_full], ignore_index=True)
+                metrics = compute_weighted_score(details_all)
+                record = {
+                    "evaluation_id": eval_id,
+                    "qa_name": qa_name,
+                    "auditor": auditor,
+                    "evaluation_date": eval_date.strftime("%Y-%m-%d"),
+                    "audit_date": audit_date.strftime("%Y-%m-%d"),
+                    "reaudit": reaudit,
+                    "call_id": call_id,
+                    "call_duration": call_dur,
+                    "call_disposition": call_disp,
+                    "overall_score": metrics["score"],
+                    "passed_points": metrics["passed_points"],
+                    "failed_points": metrics["failed_points"],
+                    "total_points": metrics["total_points"],
+                    "details": details_all,
+                }
+                upsert_google_sheet(record)
+                reset_evaluation_form()
+                st.session_state.save_request_key = request_key
+                st.session_state.last_saved_id = eval_id
+                st.session_state.reset_notice = f"Saved Evaluation ID: {eval_id}. Form reset for a new entry."
+                st.rerun()
+            finally:
+                st.session_state.save_in_progress = False
 elif nav == "View":
     render_title_card("Audit Records Explorer")
     summary = read_google_summary()
@@ -1999,7 +2033,6 @@ elif nav == "Dashboard":
                         use_container_width=True,
                     )
                 st.markdown('</div>', unsafe_allow_html=True)
-
 
 
 
