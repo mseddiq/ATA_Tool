@@ -2505,24 +2505,6 @@ elif nav == "Dashboard":
 
                     interactions = interactions.sort_values("Evaluation Date", ascending=False)
 
-                    coaching_rows = interactions[interactions["Coaching Required"] == "Yes"]
-                    qa_rows = interactions[interactions["QA Intervention Required"] == "Yes"]
-                    context_summary = pd.DataFrame([
-                        {
-                            "Flag Type": "Coaching Required",
-                            "Interactions": int(len(coaching_rows)),
-                            "Evaluation IDs": " | ".join(coaching_rows["Evaluation ID"].astype(str).tolist()) if not coaching_rows.empty else "-",
-                            "Trigger Reasons": " | ".join(sorted(dict.fromkeys(coaching_rows["Trigger Reason"].astype(str).tolist()))) if not coaching_rows.empty else "-",
-                        },
-                        {
-                            "Flag Type": "QA Intervention Required",
-                            "Interactions": int(len(qa_rows)),
-                            "Evaluation IDs": " | ".join(qa_rows["Evaluation ID"].astype(str).tolist()) if not qa_rows.empty else "-",
-                            "Trigger Reasons": " | ".join(sorted(dict.fromkeys(qa_rows["Trigger Reason"].astype(str).tolist()))) if not qa_rows.empty else "-",
-                        },
-                    ])
-                    st.dataframe(context_summary, use_container_width=True, hide_index=True)
-
                     out_cols = [
                         "Evaluation ID",
                         "Evaluation Date",
