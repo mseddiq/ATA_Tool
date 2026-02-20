@@ -443,6 +443,7 @@ def apply_theme_css(theme: dict):
         background: {table_header_bg} !important;
         color: {table_header_text} !important;
         border-color: var(--border) !important;
+        text-align: left !important;
     }}
     [data-testid="stDataFrame"] thead th div {{
         justify-content: flex-start !important;
@@ -1102,7 +1103,7 @@ def email_html_inline(record: dict) -> str:
               <td style="padding:18px;">
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="border-collapse:collapse;">
                   <tr>
-                    <td style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.4;"><span style="font-weight:700;color:#0b1f3a;">Reaudit Status:</span> {record['reaudit']}</td>
+                    <td style="background:#f8fafc;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;font-size:13px;line-height:1.4;"><span style="font-weight:700;color:#0b1f3a;">Reaudit Status:</span> <span style="font-weight:700;color:{'#d93025' if str(record['reaudit']).strip().lower() == 'yes' else '#1f8f4a'};">{record['reaudit']}</span></td>
                   </tr>
                 </table>
               </td>
@@ -1271,7 +1272,14 @@ def pdf_evaluation(record: dict) -> bytes:
     draw_section("Accuracy of Scoring", det[det["Group"] == "ACCURACY_SUB"])
     draw_section("Evaluation Quality", det[det["Group"] == "EVAL_QUALITY"])
     pdf.set_font("Arial", "B", 10)
-    pdf.cell(0, 8, f"Reaudit Status: {record['reaudit']}", ln=True)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(34, 8, "Reaudit Status:", ln=0)
+    if str(record['reaudit']).strip().lower() == "yes":
+        pdf.set_text_color(217, 48, 37)
+    else:
+        pdf.set_text_color(31, 143, 74)
+    pdf.cell(0, 8, f" {record['reaudit']}", ln=True)
+    pdf.set_text_color(0, 0, 0)
     out = pdf.output(dest="S")
     return bytes(out) if isinstance(out, (bytes, bytearray)) else out.encode("latin-1")
 # ================= NEW INTELLIGENCE LAYER =================
@@ -2192,7 +2200,7 @@ elif nav == "View":
                     <tr><td><b>QA Name:</b> {row['QA Name']}</td><td><b>Auditor Name:</b> {row['Auditor']}</td></tr>
                     <tr><td><b>Audit Date:</b> {audit_date_display}</td><td><b>Call ID:</b> {row['Call ID']}</td></tr>
                     <tr><td><b>Call Duration:</b> {row['Call Duration']}</td><td><b>Call Disposition:</b> {row['Call Disposition']}</td></tr>
-                    <tr><td><b>Overall Score:</b> <span class="view-score" style="font-size:18px;font-weight:bold;">{row['Overall Score %']:.2f}%</span></td><td><b>Reaudit:</b> {row['Reaudit']}</td></tr>
+                    <tr><td><b>Overall Score:</b> <span class="view-score" style="font-size:18px;font-weight:bold;">{row['Overall Score %']:.2f}%</span></td><td><b>Reaudit:</b> <span style="font-weight:700;color:{'#d93025' if str(row['Reaudit']).strip().lower() == 'yes' else '#1f8f4a'};">{row['Reaudit']}</span></td></tr>
                     <tr><td colspan="2"><b>Email Subject:</b> {email_subject}</td></tr>
                   </table>
                 </div>
@@ -2438,19 +2446,14 @@ elif nav == "Dashboard":
                     errors="coerce"
                 ).fillna(0)
                 ranking_df = ranking_df.sort_values("Health Index", ascending=False)
-                st.dataframe(ranking_df, use_container_width=True, hide_index=True)
-
-                risk_table = risk_df.copy()
-                if not risk_table.empty:
-                    def _risk_style(v):
-                        return (
-                            "background-color:#dcfce7;color:#166534;font-weight:bold" if v == "Low" else
-                            "background-color:#fef3c7;color:#92400e;font-weight:bold" if v == "Moderate" else
-                            "background-color:#fee2e2;color:#991b1b;font-weight:bold"
-                        )
-                    st.dataframe(risk_table.style.map(_risk_style, subset=["Risk Level"]), use_container_width=True, hide_index=True)
-                else:
-                    st.dataframe(risk_table, use_container_width=True, hide_index=True)
+                ranking_display = ranking_df.copy()
+                if "Volatility" in ranking_display.columns:
+                    ranking_display = ranking_display.drop(columns=["Volatility"])
+                for pct_col in ["Avg Score", "Failure Rate", "Reaudit Ratio"]:
+                    if pct_col in ranking_display.columns:
+                        vals = pd.to_numeric(ranking_display[pct_col], errors="coerce").fillna(0)
+                        ranking_display[pct_col] = vals.round(0).astype(int).astype(str) + "%"
+                st.dataframe(ranking_display, use_container_width=True, hide_index=True)
 
                 st.markdown("### 🚩 Interactions Requiring Coaching")
                 interactions = summary.copy()
@@ -2495,6 +2498,31 @@ elif nav == "Dashboard":
                     st.info("No high-risk interactions detected.")
                 else:
                     interactions["Trigger Reason"] = interactions.apply(_reason, axis=1)
+                    qa_map = risk_df.set_index("Auditor")["QA Intervention Required"] if not risk_df.empty else pd.Series(dtype=bool)
+                    coach_map = risk_df.set_index("Auditor")["Coaching Required"] if not risk_df.empty else pd.Series(dtype=bool)
+                    interactions["QA Intervention Required"] = interactions.get("Auditor", "").map(qa_map).fillna(False).map(lambda x: "Yes" if bool(x) else "No")
+                    interactions["Coaching Required"] = interactions.get("Auditor", "").map(coach_map).fillna(False).map(lambda x: "Yes" if bool(x) else "No")
+
+                    interactions = interactions.sort_values("Evaluation Date", ascending=False)
+
+                    coaching_rows = interactions[interactions["Coaching Required"] == "Yes"]
+                    qa_rows = interactions[interactions["QA Intervention Required"] == "Yes"]
+                    context_summary = pd.DataFrame([
+                        {
+                            "Flag Type": "Coaching Required",
+                            "Interactions": int(len(coaching_rows)),
+                            "Evaluation IDs": " | ".join(coaching_rows["Evaluation ID"].astype(str).tolist()) if not coaching_rows.empty else "-",
+                            "Trigger Reasons": " | ".join(sorted(dict.fromkeys(coaching_rows["Trigger Reason"].astype(str).tolist()))) if not coaching_rows.empty else "-",
+                        },
+                        {
+                            "Flag Type": "QA Intervention Required",
+                            "Interactions": int(len(qa_rows)),
+                            "Evaluation IDs": " | ".join(qa_rows["Evaluation ID"].astype(str).tolist()) if not qa_rows.empty else "-",
+                            "Trigger Reasons": " | ".join(sorted(dict.fromkeys(qa_rows["Trigger Reason"].astype(str).tolist()))) if not qa_rows.empty else "-",
+                        },
+                    ])
+                    st.dataframe(context_summary, use_container_width=True, hide_index=True)
+
                     out_cols = [
                         "Evaluation ID",
                         "Evaluation Date",
@@ -2502,14 +2530,30 @@ elif nav == "Dashboard":
                         "Auditor",
                         "Overall Score %",
                         "Failed Parameters",
+                        "Coaching Required",
+                        "QA Intervention Required",
                         "Trigger Reason",
                     ]
                     for c in out_cols:
                         if c not in interactions.columns:
                             interactions[c] = ""
-                    interactions = interactions.sort_values("Evaluation Date", ascending=False)
                     st.dataframe(interactions[out_cols], use_container_width=True, hide_index=True)
 
+                    st.markdown(
+                        """
+                        **Coaching Guideline Example**
+                        - Conduct structured 1:1 feedback.
+                        - Focus on failed parameters.
+                        - Reinforce QA standard alignment.
+                        - Monitor next 3 evaluations.
+
+                        **QA Intervention Guideline Example**
+                        - Conduct recalibration review.
+                        - Validate scoring consistency.
+                        - Review previous 5 audits.
+                        - Escalate if pattern continues.
+                        """
+                    )
                 st.divider()
                 st.markdown('<div class="dashboard-action-btn">', unsafe_allow_html=True)
                 d1, d2, d3 = st.columns(3)
