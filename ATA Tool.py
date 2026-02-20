@@ -930,9 +930,16 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         filter: brightness(1.05);
       }}
       #status-{key} {{
-        position: absolute;
-        left: -9999px;
+        margin-top: 4px;
+        min-height: 16px;
+        font-size: 12px;
+        line-height: 1.2;
+        color: {theme.get('button_text', '#000000')};
+        text-align: center;
+        opacity: 0;
+        transition: opacity 0.2s ease;
       }}
+      #status-{key}.show {{ opacity: 1; }}
       #status-{key}.err {{ color:{theme.get('fail', '#ef4444')}; }}
     </style>
 
@@ -969,14 +976,16 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         try {{
           const successful = document.execCommand("copy");
           if (successful) {{
-            statusEl.innerText = "Copied (HTML)";
-            statusEl.className = "";
+            statusEl.innerText = "Copied successfully";
+            statusEl.className = "show";
+            setTimeout(() => {{ statusEl.innerText = ""; statusEl.className = ""; }}, 2000);
           }} else {{
             throw new Error("Copy failed");
           }}
         }} catch (err) {{
           statusEl.innerText = "Copy blocked by browser";
-          statusEl.className = "err";
+          statusEl.className = "err show";
+          setTimeout(() => {{ statusEl.innerText = ""; statusEl.className = ""; }}, 2000);
         }}
 
         selection.removeAllRanges();
@@ -987,7 +996,7 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
     </script>
     """
 
-    components.html(js, height=46)
+    components.html(js, height=60)
 
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
@@ -2252,13 +2261,15 @@ elif nav == "View":
 
             row1 = st.columns(3, gap="small")
             with row1[0]:
-                st.download_button(
+                pdf_clicked = st.download_button(
                     "📄 Download PDF",
                     pdf_evaluation(rec),
                     f"ATA_{sel_id}.pdf",
                     "application/pdf",
                     use_container_width=True,
                 )
+                if pdf_clicked:
+                    st.success("PDF Ready")
             with row1[1]:
                 copy_html_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}", active_theme)
             with row1[2]:
@@ -2288,13 +2299,15 @@ elif nav == "View":
                         st.success(f"Deleted {sel_id}")
                         st.rerun()
             with row2[2]:
-                st.download_button(
+                export_clicked = st.download_button(
                     "📥 Export Selected to Excel",
                     export_buf,
                     f"ATA_{sel_id}.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
                 )
+                if export_clicked:
+                    st.success("Excel Ready")
 
             row3 = st.columns(3, gap="small")
             with row3[0]:
@@ -2305,9 +2318,24 @@ elif nav == "View":
                     metric_payload = row_metrics.iloc[0].to_dict() if not row_metrics.empty else {"Risk Level": "Low"}
                     st.session_state.coaching_summary_text = generate_coaching_summary(rec, metric_payload)
                     st.session_state.coaching_summary_eval_id = str(sel_id).strip()
+                    st.success("Coaching Summary Generated")
             with row3[1]:
-                st.markdown('</div>', unsafe_allow_html=True)
+                if st.session_state.get("coaching_summary_text"):
+                    copy_html_to_clipboard_button(
+                        "📋 Copy Coaching Summary",
+                        f"<pre>{st.session_state.get('coaching_summary_text', '')}</pre>",
+                        f"copy_coach_{sel_id}",
+                        active_theme,
+                    )
+                else:
+                    st.button("📋 Copy Coaching Summary", use_container_width=True, disabled=True)
+            with row3[2]:
+                if st.button("🧹 Clear Coaching Summary", use_container_width=True, disabled=not st.session_state.get("coaching_summary_text")):
+                    st.session_state.coaching_summary_text = ""
+                    st.warning("Coaching Summary Cleared")
+                    st.rerun()
 
+            st.markdown('</div>', unsafe_allow_html=True)
 
             if st.session_state.get("coaching_summary_text"):
                 st.text_area(
