@@ -442,7 +442,7 @@ def apply_theme_css(theme: dict):
     [data-testid="stDataEditor"] [role="columnheader"], [data-testid="stDataFrame"] thead th {{
         background: {table_header_bg} !important;
         color: {table_header_text} !important;
-        border-color: var(--border) !important;
+        border-color: var(--border) !important;text-align: left !important
     }}
     [data-testid="stDataEditor"] [role="gridcell"] {{ color: {table_body_text} !important; }}
 
