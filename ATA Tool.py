@@ -392,6 +392,31 @@ def apply_theme_css(theme: dict):
         align-items: center;
     }}
 
+    .view-action-grid {{
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 8px;
+    }}
+    .view-action-grid .view-action-cell {{
+        min-width: 0;
+    }}
+    .view-action-grid .stButton>button,
+    .view-action-grid .stDownloadButton>button,
+    .view-action-grid .stForm [data-testid="stFormSubmitButton"]>button {{
+        height: 46px !important;
+        min-height: 46px !important;
+        max-height: 46px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        padding: 0 12px !important;
+    }}
+    .view-action-grid iframe {{
+        width: 100% !important;
+        height: 46px !important;
+        border: 0 !important;
+    }}
+
     .stButton>button:hover, .stDownloadButton>button:hover, .stForm [data-testid="stFormSubmitButton"]>button:hover {{ transform: translateY(-4px); box-shadow: 0 12px 24px {stat_hover_shadow}; filter: brightness(1.06); }}
 
     .dashboard-action-btn [data-testid="stDownloadButton"] > button {{ transition: all 0.25s ease; cursor: pointer; }}
@@ -962,7 +987,7 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
     </script>
     """
 
-    components.html(js, height=52)
+    components.html(js, height=46)
 
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
@@ -1458,8 +1483,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
 
     def add_bar_labels(ax):
         heights = [patch.get_height() for patch in ax.patches]
-        if heights:
-            ax.set_ylim(0, max(heights) * 1.2)
         for patch in ax.patches:
             value = patch.get_height()
             ax.annotate(
@@ -1475,7 +1498,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     # 1. Trend Chart (Failure Rate)
     trend = summary.groupby("Month")["Failure Rate"].mean().sort_index()
     trend_x = trend.index.to_timestamp()
-    fig_trend, ax = plt.subplots(figsize=(7, 4.5))
+    fig_trend, ax = plt.subplots(figsize=(6, 4))
     ax.plot(trend_x, trend.values * 100, marker="o", color=theme["primary"], linewidth=2, markersize=6)
     ax.fill_between(trend_x, trend.values * 100, color=theme["primary"], alpha=0.15)
     ax.set_title("Failure Rate Trend (%)", fontweight="bold", fontsize=11)
@@ -1502,7 +1525,9 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
             aggfunc="count",
             fill_value=0,
         )
-    fig_heat, axh = plt.subplots(figsize=(7, 4.5))
+    row_count = len(heat.index) if not heat.empty else 0
+    fig_height = max(4, row_count * 0.5)
+    fig_heat, axh = plt.subplots(figsize=(6, fig_height))
     if heat.empty:
         axh.text(0.5, 0.5, "No failures recorded", ha="center", va="center", color=theme["text"])
         axh.axis("off")
@@ -1531,7 +1556,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_heat.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 3. Pass vs Fail Pie Chart
-    pie_figsize = (7, 4.5)
+    pie_figsize = (6, 6)
     pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
     fail_points = summary["Failed Points"].sum() if "Failed Points" in summary.columns else 0
     fig_pie, axp = plt.subplots(figsize=pie_figsize)
@@ -1550,8 +1575,6 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     )
     axp.set_title("Pass vs Fail Points", fontweight="bold", fontsize=12)
     axp.set_aspect("equal")
-    axp.set_xlim(-1.12, 1.12)
-    axp.set_ylim(-1.12, 1.12)
     axp.grid(False)
     style_chart(axp, theme)
     fig_pie.patch.set_facecolor(theme["bg"])
@@ -1630,13 +1653,15 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_audit_month.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 9. Most Failed Parameters
-    fig_failed, axf = plt.subplots(figsize=(7, 4.5))
     failed_params = (
         details[details["Result"] == "Fail"]["Parameter"]
         .value_counts()
         .head(10)
         .sort_values(ascending=True)
     )
+    bar_count = len(failed_params)
+    fig_height = max(4, bar_count * 0.6)
+    fig_failed, axf = plt.subplots(figsize=(6, fig_height))
     if failed_params.empty:
         axf.text(0.5, 0.5, "No failures recorded", ha="center", va="center", color=theme["text"])
         axf.axis("off")
@@ -1649,9 +1674,10 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     # 10. Audits per Disposition (HORIZONTAL BAR)
-    fig_disp, axd = plt.subplots(figsize=(7, 4.5))
-
     disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts().sort_values()
+    bar_count = len(disp_counts)
+    fig_height = max(4, bar_count * 0.6)
+    fig_disp, axd = plt.subplots(figsize=(6, fig_height))
 
     bars = axd.barh(disp_counts.index, disp_counts.values, color=theme["primary"])
 
@@ -2186,98 +2212,91 @@ elif nav == "View":
                 )
             export_buf.seek(0)
 
-            st.markdown('<div style="height: 14px;"></div>', unsafe_allow_html=True)
-            top_actions = st.columns(3, gap="large")
-            with top_actions[0]:
-                st.markdown('<div class="action-card">', unsafe_allow_html=True)
-                st.download_button(
-                    "📄 Download PDF",
-                    pdf_evaluation(rec),
-                    f"ATA_{sel_id}.pdf",
-                    "application/pdf",
-                    use_container_width=True,
-                )
-                st.markdown('</div>', unsafe_allow_html=True)
-            with top_actions[1]:
-                st.markdown('<div class="action-card">', unsafe_allow_html=True)
-                with st.container():
-                    copy_html_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}", active_theme)
-                st.markdown('</div>', unsafe_allow_html=True)
-            with top_actions[2]:
-                st.markdown('<div class="action-card">', unsafe_allow_html=True)
-                with st.container():
-                    copy_html_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div class="view-action-grid">', unsafe_allow_html=True)
 
-            bottom_actions = st.columns(3, gap="large")
-            with bottom_actions[0]:
-                st.markdown('<div class="action-card">', unsafe_allow_html=True)
-                if st.button("✏️ Edit Record", use_container_width=True):
-                    st.session_state.edit_mode = True
-                    st.session_state.edit_eval_id = sel_id
-                    st.session_state.prefill = {
-                        "qa_name": row["QA Name"],
-                        "auditor": row["Auditor"],
-                        "evaluation_date": pd.to_datetime(row["Evaluation Date"]).date(),
-                        "audit_date": pd.to_datetime(row["Audit Date"]).date(),
-                        "call_id": row["Call ID"],
-                        "call_duration": row["Call Duration"],
-                        "call_disposition": row["Call Disposition"],
-                        "reaudit": row["Reaudit"],
-                        "details_df": details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()],
-                    }
-                    st.session_state.goto_nav = "Evaluation"
+            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
+            st.download_button(
+                "📄 Download PDF",
+                pdf_evaluation(rec),
+                f"ATA_{sel_id}.pdf",
+                "application/pdf",
+                use_container_width=True,
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
+            copy_html_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}", active_theme)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
+            copy_html_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
+            if st.button("✏️ Edit Record", use_container_width=True):
+                st.session_state.edit_mode = True
+                st.session_state.edit_eval_id = sel_id
+                st.session_state.prefill = {
+                    "qa_name": row["QA Name"],
+                    "auditor": row["Auditor"],
+                    "evaluation_date": pd.to_datetime(row["Evaluation Date"]).date(),
+                    "audit_date": pd.to_datetime(row["Audit Date"]).date(),
+                    "call_id": row["Call ID"],
+                    "call_duration": row["Call Duration"],
+                    "call_disposition": row["Call Disposition"],
+                    "reaudit": row["Reaudit"],
+                    "details_df": details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()],
+                }
+                st.session_state.goto_nav = "Evaluation"
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
+            if st.button("🗑️ Delete Record", use_container_width=True):
+                if delete_evaluation(sel_id):
+                    st.success(f"Deleted {sel_id}")
                     st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with bottom_actions[1]:
-                st.markdown('<div class="action-card">', unsafe_allow_html=True)
-                if st.button("🗑️ Delete Record", use_container_width=True):
-                    if delete_evaluation(sel_id):
-                        st.success(f"Deleted {sel_id}")
-                        st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
-            with bottom_actions[2]:
-                st.markdown('<div class="action-card">', unsafe_allow_html=True)
-                st.download_button(
-                    "📥 Export Selected to Excel",
-                    export_buf,
-                    f"ATA_{sel_id}.xlsx",
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True,
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
+            st.download_button(
+                "📥 Export Selected to Excel",
+                export_buf,
+                f"ATA_{sel_id}.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
+            if st.button("🧠 Generate Coaching Summary", use_container_width=True):
+                auditor_base = compute_auditor_intelligence(summary, details)
+                auditor_risk = compute_risk_flags(auditor_base, details)
+                row_metrics = auditor_risk[auditor_risk["Auditor"].astype(str).str.strip() == str(row["Auditor"]).strip()]
+                metric_payload = row_metrics.iloc[0].to_dict() if not row_metrics.empty else {"Risk Level": "Low"}
+                st.session_state.coaching_summary_text = generate_coaching_summary(rec, metric_payload)
+                st.session_state.coaching_summary_eval_id = str(sel_id).strip()
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
+            if st.session_state.get("coaching_summary_text"):
+                copy_html_to_clipboard_button(
+                    "📋 Copy Coaching Summary",
+                    f"<pre>{st.session_state.get('coaching_summary_text', '')}</pre>",
+                    f"copy_coach_{sel_id}",
+                    active_theme,
                 )
-                st.markdown('</div>', unsafe_allow_html=True)
+            else:
+                st.button("📋 Copy Coaching Summary", use_container_width=True, disabled=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            coaching_actions = st.columns(3, gap="large")
-            with coaching_actions[0]:
-                st.markdown('<div class="action-card">', unsafe_allow_html=True)
-                if st.button("🧠 Generate Coaching Summary", use_container_width=True):
-                    auditor_base = compute_auditor_intelligence(summary, details)
-                    auditor_risk = compute_risk_flags(auditor_base, details)
-                    row_metrics = auditor_risk[auditor_risk["Auditor"].astype(str).str.strip() == str(row["Auditor"]).strip()]
-                    metric_payload = row_metrics.iloc[0].to_dict() if not row_metrics.empty else {"Risk Level": "Low"}
-                    st.session_state.coaching_summary_text = generate_coaching_summary(rec, metric_payload)
-                    st.session_state.coaching_summary_eval_id = str(sel_id).strip()
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
+            if st.button("🧹 Clear Coaching Summary", use_container_width=True, disabled=not st.session_state.get("coaching_summary_text")):
+                st.session_state.coaching_summary_text = ""
+                st.rerun()
+            st.markdown('</div>', unsafe_allow_html=True)
 
-            with coaching_actions[1]:
-                st.markdown('<div class="action-card">', unsafe_allow_html=True)
-                if st.session_state.get("coaching_summary_text"):
-                    copy_html_to_clipboard_button(
-                        "📋 Copy Coaching Summary",
-                        f"<pre>{st.session_state.get('coaching_summary_text', '')}</pre>",
-                        f"copy_coach_{sel_id}",
-                        active_theme,
-                    )
-                else:
-                    st.button("📋 Copy Coaching Summary", use_container_width=True, disabled=True)
-                st.markdown('</div>', unsafe_allow_html=True)
-
-            with coaching_actions[2]:
-                st.markdown('<div class="action-card">', unsafe_allow_html=True)
-                if st.button("🧹 Clear Coaching Summary", use_container_width=True, disabled=not st.session_state.get("coaching_summary_text")):
-                    st.session_state.coaching_summary_text = ""
-                    st.rerun()
-                st.markdown('</div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
 
             if st.session_state.get("coaching_summary_text"):
                 st.text_area(
