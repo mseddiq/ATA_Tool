@@ -2212,91 +2212,76 @@ elif nav == "View":
                 )
             export_buf.seek(0)
 
-            st.markdown('<div class="view-action-grid">', unsafe_allow_html=True)
-
-            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
-            st.download_button(
-                "📄 Download PDF",
-                pdf_evaluation(rec),
-                f"ATA_{sel_id}.pdf",
-                "application/pdf",
-                use_container_width=True,
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
-            copy_html_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}", active_theme)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
-            copy_html_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
-            if st.button("✏️ Edit Record", use_container_width=True):
-                st.session_state.edit_mode = True
-                st.session_state.edit_eval_id = sel_id
-                st.session_state.prefill = {
-                    "qa_name": row["QA Name"],
-                    "auditor": row["Auditor"],
-                    "evaluation_date": pd.to_datetime(row["Evaluation Date"]).date(),
-                    "audit_date": pd.to_datetime(row["Audit Date"]).date(),
-                    "call_id": row["Call ID"],
-                    "call_duration": row["Call Duration"],
-                    "call_disposition": row["Call Disposition"],
-                    "reaudit": row["Reaudit"],
-                    "details_df": details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()],
-                }
-                st.session_state.goto_nav = "Evaluation"
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
-            if st.button("🗑️ Delete Record", use_container_width=True):
-                if delete_evaluation(sel_id):
-                    st.success(f"Deleted {sel_id}")
-                    st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
-            st.download_button(
-                "📥 Export Selected to Excel",
-                export_buf,
-                f"ATA_{sel_id}.xlsx",
-                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                use_container_width=True,
-            )
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
-            if st.button("🧠 Generate Coaching Summary", use_container_width=True):
-                auditor_base = compute_auditor_intelligence(summary, details)
-                auditor_risk = compute_risk_flags(auditor_base, details)
-                row_metrics = auditor_risk[auditor_risk["Auditor"].astype(str).str.strip() == str(row["Auditor"]).strip()]
-                metric_payload = row_metrics.iloc[0].to_dict() if not row_metrics.empty else {"Risk Level": "Low"}
-                st.session_state.coaching_summary_text = generate_coaching_summary(rec, metric_payload)
-                st.session_state.coaching_summary_eval_id = str(sel_id).strip()
-            st.markdown('</div>', unsafe_allow_html=True)
-
-            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
-            if st.session_state.get("coaching_summary_text"):
-                copy_html_to_clipboard_button(
-                    "📋 Copy Coaching Summary",
-                    f"<pre>{st.session_state.get('coaching_summary_text', '')}</pre>",
-                    f"copy_coach_{sel_id}",
-                    active_theme,
+            row1 = st.columns(3, gap="small")
+            with row1[0]:
+                st.download_button(
+                    "📄 Download PDF",
+                    pdf_evaluation(rec),
+                    f"ATA_{sel_id}.pdf",
+                    "application/pdf",
+                    use_container_width=True,
                 )
-            else:
-                st.button("📋 Copy Coaching Summary", use_container_width=True, disabled=True)
-            st.markdown('</div>', unsafe_allow_html=True)
+            with row1[1]:
+                copy_html_to_clipboard_button("📋 Copy Email Body", email_html_inline(rec), f"copy_body_{sel_id}", active_theme)
+            with row1[2]:
+                copy_html_to_clipboard_button("📌 Copy Email Subject", email_subject_text(rec), f"copy_subject_{sel_id}", active_theme)
 
-            st.markdown('<div class="view-action-cell">', unsafe_allow_html=True)
-            if st.button("🧹 Clear Coaching Summary", use_container_width=True, disabled=not st.session_state.get("coaching_summary_text")):
-                st.session_state.coaching_summary_text = ""
-                st.rerun()
-            st.markdown('</div>', unsafe_allow_html=True)
+            row2 = st.columns(3, gap="small")
+            with row2[0]:
+                if st.button("✏️ Edit Record", use_container_width=True):
+                    st.session_state.edit_mode = True
+                    st.session_state.edit_eval_id = sel_id
+                    st.session_state.prefill = {
+                        "qa_name": row["QA Name"],
+                        "auditor": row["Auditor"],
+                        "evaluation_date": pd.to_datetime(row["Evaluation Date"]).date(),
+                        "audit_date": pd.to_datetime(row["Audit Date"]).date(),
+                        "call_id": row["Call ID"],
+                        "call_duration": row["Call Duration"],
+                        "call_disposition": row["Call Disposition"],
+                        "reaudit": row["Reaudit"],
+                        "details_df": details[details["Evaluation ID"].astype(str).str.strip() == str(sel_id).strip()],
+                    }
+                    st.session_state.goto_nav = "Evaluation"
+                    st.rerun()
+            with row2[1]:
+                if st.button("🗑️ Delete Record", use_container_width=True):
+                    if delete_evaluation(sel_id):
+                        st.success(f"Deleted {sel_id}")
+                        st.rerun()
+            with row2[2]:
+                st.download_button(
+                    "📥 Export Selected to Excel",
+                    export_buf,
+                    f"ATA_{sel_id}.xlsx",
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
 
-            st.markdown('</div>', unsafe_allow_html=True)
+            row3 = st.columns(3, gap="small")
+            with row3[0]:
+                if st.button("🧠 Generate Coaching Summary", use_container_width=True):
+                    auditor_base = compute_auditor_intelligence(summary, details)
+                    auditor_risk = compute_risk_flags(auditor_base, details)
+                    row_metrics = auditor_risk[auditor_risk["Auditor"].astype(str).str.strip() == str(row["Auditor"]).strip()]
+                    metric_payload = row_metrics.iloc[0].to_dict() if not row_metrics.empty else {"Risk Level": "Low"}
+                    st.session_state.coaching_summary_text = generate_coaching_summary(rec, metric_payload)
+                    st.session_state.coaching_summary_eval_id = str(sel_id).strip()
+            with row3[1]:
+                if st.session_state.get("coaching_summary_text"):
+                    copy_html_to_clipboard_button(
+                        "📋 Copy Coaching Summary",
+                        f"<pre>{st.session_state.get('coaching_summary_text', '')}</pre>",
+                        f"copy_coach_{sel_id}",
+                        active_theme,
+                    )
+                else:
+                    st.button("📋 Copy Coaching Summary", use_container_width=True, disabled=True)
+            with row3[2]:
+                if st.button("🧹 Clear Coaching Summary", use_container_width=True, disabled=not st.session_state.get("coaching_summary_text")):
+                    st.session_state.coaching_summary_text = ""
+                    st.rerun()
+
 
             if st.session_state.get("coaching_summary_text"):
                 st.text_area(
