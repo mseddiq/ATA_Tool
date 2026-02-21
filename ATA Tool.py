@@ -967,9 +967,11 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         const container = document.createElement("div");
         container.innerHTML = html;
         container.contentEditable = true;
-        container.style.position = "fixed";
-        container.style.left = "-9999px";
-        container.style.top = "0";
+        container.style.position = "absolute";
+        container.style.opacity = "0";
+        container.style.pointerEvents = "none";
+        container.style.height = "0";
+        container.style.overflow = "hidden";
         document.body.appendChild(container);
 
         const range = document.createRange();
@@ -2262,6 +2264,9 @@ elif nav == "View":
                 .view-action-grid iframe {
                     width: 100% !important;
                     height: 60px !important;
+                    min-height: 60px !important;
+                    max-height: 60px !important;
+                    display: block !important;
                     border: 0 !important;
                 }
                 </style>
