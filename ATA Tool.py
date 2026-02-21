@@ -919,7 +919,7 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
       html, body {{ margin:0; padding:0; background:transparent; }}
       #btn-{key} {{
         width:100%;
-        height:46px;
+        height:60px;
         border-radius:10px;
         border:1px solid {theme['border']};
         background:{theme['button_bg']};
@@ -1003,7 +1003,7 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
     </script>
     """
 
-    components.html(js, height=46)
+    components.html(js, height=60)
 
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
