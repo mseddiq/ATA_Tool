@@ -1003,7 +1003,7 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
     </script>
     """
 
-    components.html(js, height=60)
+    components.html(js, height=46)
 
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
