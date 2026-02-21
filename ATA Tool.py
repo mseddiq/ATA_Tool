@@ -919,7 +919,7 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
       html, body {{ margin:0; padding:0; background:transparent; }}
       #btn-{key} {{
         width:100%;
-        height:44px;
+        height:46px;
         border-radius:10px;
         border:1px solid {theme['border']};
         background:{theme['button_bg']};
