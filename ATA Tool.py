@@ -960,32 +960,23 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         const bytes = new Uint8Array([...bin].map(ch => ch.charCodeAt(0)));
         return new TextDecoder("utf-8").decode(bytes);
       }}
-
-async function copyRichHTML() {{
-  const html = b64ToUtf8(b64);
-
-  try {{
-    await window.parent.navigator.clipboard.write([
-      new ClipboardItem({{
-        "text/html": new Blob([html], {{ type: "text/html" }}),
-        "text/plain": new Blob([html], {{ type: "text/plain" }})
-      }})
-    ]);
-
-    statusEl.innerText = "Copied successfully";
-    statusEl.className = "show";
-    setTimeout(() => {{
+      async function copyRichHTML() {{
+      const html = b64ToUtf8(b64);
+      try {{
+      await window.parent.navigator.clipboard.writeText(html);
+      statusEl.innerText = "Copied successfully";
+      statusEl.className = "show";
+      setTimeout(() => {{
       statusEl.innerText = "";
       statusEl.className = "";
-    }}, 2000);
-
-  }} catch (err) {{
-    statusEl.innerText = "Copy blocked by browser";
-    statusEl.className = "err show";
-    setTimeout(() => {{
+      }}, 2000);
+      }} catch (err) {{
+      statusEl.innerText = "Copy blocked by browser";
+      statusEl.className = "err show";
+      setTimeout(() => {{
       statusEl.innerText = "";
       statusEl.className = "";
-    }}, 2000);
+      }}, 2000);
   }}
 }}
 
