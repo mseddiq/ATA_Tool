@@ -966,10 +966,10 @@ async function copyRichHTML() {
 
   try {
     await window.parent.navigator.clipboard.write([
-      new ClipboardItem({
-        "text/html": new Blob([html], { type: "text/html" }),
-        "text/plain": new Blob([html], { type: "text/plain" })
-      })
+      new ClipboardItem({{
+        "text/html": new Blob([html], {{ type: "text/html" }}),
+        "text/plain": new Blob([html], {{ type: "text/plain" }})
+      }})
     ]);
 
     statusEl.innerText = "Copied successfully";
