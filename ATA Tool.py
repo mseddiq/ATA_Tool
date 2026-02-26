@@ -961,45 +961,36 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
         return new TextDecoder("utf-8").decode(bytes);
       }}
 
-      function copyRichHTML() {{
-        const html = b64ToUtf8(b64);
+async function copyRichHTML() {
+  const html = b64ToUtf8(b64);
 
-        const container = document.createElement("div");
-        container.innerHTML = html;
-        container.contentEditable = true;
-        container.style.position = "absolute";
-        container.style.opacity = "0";
-        container.style.pointerEvents = "none";
-        container.style.height = "0";
-        container.style.overflow = "hidden";
-        document.body.appendChild(container);
+  try {
+    await window.parent.navigator.clipboard.write([
+      new ClipboardItem({
+        "text/html": new Blob([html], { type: "text/html" }),
+        "text/plain": new Blob([html], { type: "text/plain" })
+      })
+    ]);
 
-        const range = document.createRange();
-        range.selectNodeContents(container);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
+    statusEl.innerText = "Copied successfully";
+    statusEl.className = "show";
+    setTimeout(() => {
+      statusEl.innerText = "";
+      statusEl.className = "";
+    }, 2000);
 
-        try {{
-          const successful = document.execCommand("copy");
-          if (successful) {{
-            statusEl.innerText = "Copied successfully";
-            statusEl.className = "show";
-            setTimeout(() => {{ statusEl.innerText = ""; statusEl.className = ""; }}, 2000);
-          }} else {{
-            throw new Error("Copy failed");
-          }}
-        }} catch (err) {{
-          statusEl.innerText = "Copy blocked by browser";
-          statusEl.className = "err show";
-          setTimeout(() => {{ statusEl.innerText = ""; statusEl.className = ""; }}, 2000);
-        }}
+  } catch (err) {
+    statusEl.innerText = "Copy blocked by browser";
+    statusEl.className = "err show";
+    setTimeout(() => {
+      statusEl.innerText = "";
+      statusEl.className = "";
+    }, 2000);
+  }
+}
 
-        selection.removeAllRanges();
-        document.body.removeChild(container);
-      }}
-
-      document.getElementById("btn-{key}").addEventListener("click", copyRichHTML);
+document.getElementById("btn-{key}")
+        .addEventListener("click", copyRichHTML);
     </script>
     """
 
