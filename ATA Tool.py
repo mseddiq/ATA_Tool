@@ -1477,6 +1477,39 @@ def generate_coaching_summary(evaluation_record: dict, auditor_metrics: dict | p
         f"Follow-Up Timeline\n- {follow_up}"
     )
 
+
+CRITICAL_PARAMETERS = [
+    "Effective Probing / Qualifying Client",
+    "Accurate / Complete Info",
+    "Objection / Call Handling",
+    "Took Lead Ownership",
+    "Follow-up Made Properly",
+    "Adherence to QA Guidelines",
+    "Critical Error Identification",
+]
+
+COACHING_PARAMETERS = [
+    "Call Opening (Readiness / Energy)",
+    "Call Opening 2 (Confirming Lead Source / Meeting Focused)",
+    "Soft Skills (Active Listening / Rapport)",
+    "Positivity / Professionalism / Politeness",
+    "Call Closure / Meeting Summarized",
+    "Accurate Disposition",
+    "Comment / Notes",
+    "Accurate Data Inputs / Shows",
+    "WhatsApp Message Sent",
+    "Evidence & Notes",
+    "Objectivity & Fairness",
+    "Evaluation Variety & Sample Coverage",
+    "Feedback Actionability",
+    "Timeliness & Completeness",
+]
+
+QA_INTERVENTION_PARAMETERS = [
+    "Adherence to QA Guidelines",
+    "Critical Error Identification",
+]
+
 # -------------------- DASHBOARD LOGIC --------------------
 def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFrame | None = None):
     if summary is None or details is None:
@@ -2274,6 +2307,7 @@ elif nav == "View":
                     pdf_evaluation(rec),
                     f"ATA_{sel_id}.pdf",
                     "application/pdf",
+                    key=f"pdf_{sel_id}",
                     use_container_width=True,
                 )
                 if pdf_clicked:
@@ -2285,7 +2319,7 @@ elif nav == "View":
 
             row2 = st.columns(3, gap="small")
             with row2[0]:
-                if st.button("✏️ Edit Record", use_container_width=True):
+                if st.button("✏️ Edit Record", key=f"edit_{sel_id}", use_container_width=True):
                     st.session_state.edit_mode = True
                     st.session_state.edit_eval_id = sel_id
                     st.session_state.prefill = {
@@ -2302,7 +2336,7 @@ elif nav == "View":
                     st.session_state.goto_nav = "Evaluation"
                     st.rerun()
             with row2[1]:
-                if st.button("🗑️ Delete Record", use_container_width=True):
+                if st.button("🗑️ Delete Record", key=f"delete_{sel_id}", use_container_width=True):
                     if delete_evaluation(sel_id):
                         st.success(f"Deleted {sel_id}")
                         st.rerun()
@@ -2312,6 +2346,7 @@ elif nav == "View":
                     export_buf,
                     f"ATA_{sel_id}.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"export_{sel_id}",
                     use_container_width=True,
                 )
                 if export_clicked:
@@ -2319,7 +2354,7 @@ elif nav == "View":
 
             row3 = st.columns(3, gap="small")
             with row3[0]:
-                if st.button("🧠 Generate Coaching Summary", use_container_width=True):
+                if st.button("🧠 Generate Coaching Summary", key=f"gen_coach_{sel_id}", use_container_width=True):
                     auditor_base = compute_auditor_intelligence(summary, details)
                     auditor_risk = compute_risk_flags(auditor_base, details)
                     row_metrics = auditor_risk[auditor_risk["Auditor"].astype(str).str.strip() == str(row["Auditor"]).strip()]
@@ -2336,9 +2371,9 @@ elif nav == "View":
                         active_theme,
                     )
                 else:
-                    st.button("📋 Copy Coaching Summary", use_container_width=True, disabled=True)
+                    st.button("📋 Copy Coaching Summary", key=f"copy_coach_disabled_{sel_id}", use_container_width=True, disabled=True)
             with row3[2]:
-                if st.button("🧹 Clear Coaching Summary", use_container_width=True, disabled=not st.session_state.get("coaching_summary_text")):
+                if st.button("🧹 Clear Coaching Summary", key=f"clear_coach_{sel_id}", use_container_width=True, disabled=not st.session_state.get("coaching_summary_text")):
                     st.session_state.coaching_summary_text = ""
                     st.warning("Coaching Summary Cleared")
                     st.rerun()
@@ -2455,7 +2490,8 @@ elif nav == "Dashboard":
                 interactions = summary.copy()
                 interactions["Overall Score %"] = pd.to_numeric(interactions.get("Overall Score %", 0), errors="coerce").fillna(0)
                 interactions["Evaluation Date"] = pd.to_datetime(interactions.get("Evaluation Date"), errors="coerce")
-                detail_fail = details[details.get("Result", "").astype(str).str.lower() == "fail"].copy()
+                detail_fail = details[details.get("Result", "").astype(str).str.strip().str.lower() == "fail"].copy()
+                detail_fail["Evaluation ID"] = detail_fail.get("Evaluation ID", "").astype(str).str.strip()
                 if not detail_fail.empty:
                     detail_fail["Parameter"] = detail_fail.get("Parameter", "").fillna("").astype(str).str.strip()
                     failed_params = detail_fail.groupby("Evaluation ID")["Parameter"].apply(
@@ -2464,28 +2500,44 @@ elif nav == "Dashboard":
                 else:
                     failed_params = pd.DataFrame(columns=["Evaluation ID", "Failed Parameters"])
 
+                interactions["Evaluation ID"] = interactions.get("Evaluation ID", "").astype(str).str.strip()
                 interactions = interactions.merge(failed_params, on="Evaluation ID", how="left")
                 if "Reaudit" not in interactions.columns:
                     interactions["Reaudit"] = ""
-                critical_ids = details[
-                    details.get("Parameter", "").astype(str).str.strip().str.lower().eq("critical error identification")
-                    & details.get("Result", "").astype(str).str.strip().str.lower().eq("fail")
-                ]["Evaluation ID"].astype(str).str.strip().unique().tolist()
-                repeat_by_auditor = auditor_intel.set_index("Auditor")["Repeat Failure Count"] if not auditor_intel.empty else pd.Series(dtype=float)
-                interactions["_repeat"] = interactions.get("Auditor", "").map(repeat_by_auditor).fillna(0)
-                interactions["_critical"] = interactions["Evaluation ID"].astype(str).str.strip().isin(critical_ids)
-                interactions["_score"] = interactions["Overall Score %"] < 85
+                critical_params_lower = {p.lower() for p in CRITICAL_PARAMETERS}
+                coaching_params_lower = {p.lower() for p in COACHING_PARAMETERS}
+                qa_intervention_params_lower = {p.lower() for p in QA_INTERVENTION_PARAMETERS}
+
+                failed_by_eval = detail_fail.groupby("Evaluation ID")["Parameter"].apply(
+                    lambda x: {str(v).strip().lower() for v in x if str(v).strip()}
+                ) if not detail_fail.empty else pd.Series(dtype=object)
+                interactions["_failed_param_set"] = interactions["Evaluation ID"].map(failed_by_eval).apply(lambda x: x if isinstance(x, set) else set())
+                interactions["_critical_param_fail"] = interactions["_failed_param_set"].apply(lambda s: len(s & critical_params_lower) > 0)
+                interactions["_coaching_param_fail"] = interactions["_failed_param_set"].apply(lambda s: len(s & coaching_params_lower) > 0)
+                interactions["_score_lt_50"] = interactions["Overall Score %"] < 50
+                interactions["_score_lt_80"] = interactions["Overall Score %"] < 80
+                interactions["_critical"] = interactions["_critical_param_fail"] | interactions["_score_lt_50"]
+                interactions["_coaching"] = interactions["_critical"] | interactions["_coaching_param_fail"] | interactions["_score_lt_80"]
                 interactions["_reaudit"] = interactions["Reaudit"].astype(str).str.strip().str.lower().eq("yes")
-                interactions = interactions[(interactions["_score"]) | (interactions["_critical"]) | (interactions["_repeat"] >= 1) | (interactions["_reaudit"])]
+                interactions["_qa_param_critical_fail"] = interactions["_failed_param_set"].apply(
+                    lambda s: len(s & qa_intervention_params_lower) > 0
+                )
+                interactions["_qa_intervention"] = interactions["_reaudit"] | (interactions["_critical"] & interactions["_qa_param_critical_fail"])
+                interactions = interactions[
+                    (interactions["_score_lt_80"])
+                    | (interactions["_critical"])
+                    | (interactions["_coaching"])
+                    | (interactions["_reaudit"])
+                ]
 
                 def _reason(r):
                     reasons = []
-                    if r["_score"]:
-                        reasons.append("Score")
                     if r["_critical"]:
-                        reasons.append("Critical")
-                    if r["_repeat"] >= 1:
-                        reasons.append("Repeat")
+                        reasons.append("Critical Fail")
+                    if r["_coaching"]:
+                        reasons.append("Coaching Required")
+                    if r["_score_lt_80"]:
+                        reasons.append("Score < 80")
                     if r["_reaudit"]:
                         reasons.append("Reaudit")
                     return " / ".join(reasons)
@@ -2494,10 +2546,14 @@ elif nav == "Dashboard":
                     st.info("No high-risk interactions detected.")
                 else:
                     interactions["Trigger Reason"] = interactions.apply(_reason, axis=1)
-                    qa_map = risk_df.set_index("Auditor")["QA Intervention Required"] if not risk_df.empty else pd.Series(dtype=bool)
-                    coach_map = risk_df.set_index("Auditor")["Coaching Required"] if not risk_df.empty else pd.Series(dtype=bool)
-                    interactions["QA Intervention Required"] = interactions.get("Auditor", "").map(qa_map).fillna(False).map(lambda x: "Yes" if bool(x) else "No")
-                    interactions["Coaching Required"] = interactions.get("Auditor", "").map(coach_map).fillna(False).map(lambda x: "Yes" if bool(x) else "No")
+                    interactions["Critical Fail"] = interactions["_critical"].map(lambda x: "Yes" if bool(x) else "No")
+                    interactions["Coaching Required"] = interactions["_coaching"].map(lambda x: "Yes" if bool(x) else "No")
+                    interactions["QA Intervention Required"] = interactions["_qa_intervention"].map(lambda x: "Yes" if bool(x) else "No")
+                    interactions["Interaction Indicator"] = interactions.apply(
+                        lambda r: "🔴 Critical Fail" if r["_critical"] else ("🟠 Coaching Required" if r["_coaching"] else "⚪"),
+                        axis=1,
+                    )
+                    interactions["QA Flag"] = interactions["_qa_intervention"].map(lambda x: "🚩" if bool(x) else "")
 
                     interactions = interactions.sort_values("Evaluation Date", ascending=False)
 
@@ -2508,8 +2564,11 @@ elif nav == "Dashboard":
                         "Auditor",
                         "Overall Score %",
                         "Failed Parameters",
+                        "Critical Fail",
                         "Coaching Required",
                         "QA Intervention Required",
+                        "Interaction Indicator",
+                        "QA Flag",
                         "Trigger Reason",
                     ]
                     for c in out_cols:
