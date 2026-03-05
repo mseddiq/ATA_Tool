@@ -913,6 +913,15 @@ def compute_weighted_score(df: pd.DataFrame) -> dict:
 # -------------------- EXPORT HELPERS --------------------
 def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme: dict) -> None:
     html_b64 = base64.b64encode(html_to_copy.encode("utf-8")).decode("ascii")
+    success_message = "Copied successfully"
+    key_l = str(key).lower()
+    label_l = str(label).lower()
+    if "copy_body" in key_l or "copy email body" in label_l:
+        success_message = "Evaluation copied"
+    elif "copy_subject" in key_l or "copy email subject" in label_l:
+        success_message = "Subject copied"
+    elif "copy_coach" in key_l or "copy coaching summary" in label_l:
+        success_message = "Summary copied"
 
     js = f"""
     <style>
@@ -972,7 +981,7 @@ async function copyRichHTML() {{
       }})
     ]);
 
-    statusEl.innerText = "Copied successfully";
+    statusEl.innerText = "{success_message}";
     statusEl.className = "show";
     setTimeout(() => {{
       statusEl.innerText = "";
