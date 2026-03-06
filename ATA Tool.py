@@ -945,7 +945,7 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
       }}
       #status-{key} {{
         margin-top: 4px;
-        min-height: 16px;
+        min-height: 20px;
         font-size: 12px;
         line-height: 1.2;
         color: {theme.get('button_text', '#000000')};
@@ -1003,7 +1003,7 @@ document.getElementById("btn-{key}")
     </script>
     """
 
-    components.html(js, height=60)
+    components.html(js, height=90)
 
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
@@ -1538,18 +1538,25 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     theme = get_chart_theme()
 
     def add_bar_labels(ax):
-        heights = [patch.get_height() for patch in ax.patches]
+        max_value = max([patch.get_height() for patch in ax.patches], default=0)
+        top_limit = max_value + 10
+        ax.set_ylim(0, top_limit)
         for patch in ax.patches:
             value = patch.get_height()
+            y_pos = max(0.2, min(value - 0.8, top_limit - 0.8))
             ax.annotate(
                 f"{value:.1f}" if isinstance(value, float) else f"{value}",
-                (patch.get_x() + patch.get_width() / 2, value),
+                (patch.get_x() + patch.get_width() / 2, y_pos),
                 ha="center",
-                va="bottom",
-                xytext=(0, 6),
-                textcoords="offset points",
+                va="top",
                 fontsize=9,
                 color=theme["text"],
+                bbox=dict(
+                    boxstyle="round,pad=0.25",
+                    facecolor="#0b1f3a",
+                    edgecolor="none",
+                    alpha=0.75,
+                ),
             )
     # 1. Trend Chart (Failure Rate)
     trend = summary.groupby("Month")["Failure Rate"].mean().sort_index()
@@ -1561,11 +1568,24 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     ax.grid(True, alpha=0.25, color=theme["grid"])
     ax.set_xticks(trend_x)
     ax.set_xticklabels([d.strftime("%b-%y") for d in trend_x])
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=30, ha="right")
+    max_trend = max((trend.values * 100), default=0)
+    ax.set_ylim(0, max_trend + 10)
     for x, y in zip(trend_x, trend.values * 100):
-        ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", color=theme["accent"], fontweight="bold")
+        y_pos = max(0.2, min(y - 0.8, (max_trend + 10) - 0.8))
+        ax.annotate(
+            f"{y:.1f}%",
+            (x, y_pos),
+            ha="center",
+            va="top",
+            color=theme["accent"],
+            fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.25", facecolor="#0b1f3a", edgecolor="none", alpha=0.75),
+        )
     style_chart(ax, theme)
     fig_trend.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
+    plt.subplots_adjust(bottom=0.18)
     # 2. Heatmap
     fail_rows = details[details.get("Result", "") == "Fail"].copy()
     heat = pd.DataFrame()
@@ -1652,7 +1672,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     score_date_labels = [pd.to_datetime(d).strftime("%d-%b") for d in score_by_date.index]
     axsd.bar(score_date_labels, score_by_date.values, color=theme["accent"])
     axsd.set_title("Average Score by Date (%)", fontweight="bold", fontsize=11)
-    axsd.tick_params(axis="x", rotation=30)
+    axsd.set_xticklabels(axsd.get_xticklabels(), rotation=30, ha="right")
     add_bar_labels(axsd)
     style_chart(axsd, theme)
     fig_score_date.patch.set_facecolor(theme["bg"])
@@ -1672,7 +1692,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     ]
     axsm.bar(score_month_labels, score_by_month.values, color=theme["primary"])
     axsm.set_title("Average Score by Month (%)", fontweight="bold", fontsize=11)
-    axsm.tick_params(axis="x", rotation=20)
+    axsm.set_xticklabels(axsm.get_xticklabels(), rotation=30, ha="right")
     add_bar_labels(axsm)
     style_chart(axsm, theme)
     fig_score_month.patch.set_facecolor(theme["bg"])
@@ -1683,7 +1703,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     audit_date_labels = [pd.to_datetime(d).strftime("%d-%b") for d in audits_by_date.index]
     axad.bar(audit_date_labels, audits_by_date.values, color=theme["accent"])
     axad.set_title("Audits per Date", fontweight="bold", fontsize=11)
-    axad.tick_params(axis="x", rotation=30)
+    axad.set_xticklabels(axad.get_xticklabels(), rotation=30, ha="right")
     add_bar_labels(axad)
     style_chart(axad, theme)
     fig_audit_date.patch.set_facecolor(theme["bg"])
@@ -1703,7 +1723,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     ]
     axam.bar(audit_month_labels, audits_by_month.values, color=theme["primary"])
     axam.set_title("Audits per Month", fontweight="bold", fontsize=11)
-    axam.tick_params(axis="x", rotation=20)
+    axam.set_xticklabels(axam.get_xticklabels(), rotation=30, ha="right")
     add_bar_labels(axam)
     style_chart(axam, theme)
     fig_audit_month.patch.set_facecolor(theme["bg"])
@@ -1724,8 +1744,20 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     else:
         axf.barh(failed_params.index, failed_params.values, color=theme["fail"])
         axf.set_title("Most Failed Parameters (Top 10)", fontweight="bold", fontsize=11)
+        max_failed = max(failed_params.values) if len(failed_params.values) else 0
+        axf.set_xlim(0, max_failed + 10)
         for i, value in enumerate(failed_params.values):
-            axf.text(value + 0.1, i, f"{value}", va="center", fontsize=8, color=theme["text"])
+            x_pos = max(0.2, min(value - 0.4, (max_failed + 10) - 0.4))
+            axf.text(
+                x_pos,
+                i,
+                f"{value}",
+                va="center",
+                ha="right",
+                fontsize=8,
+                color=theme["text"],
+                bbox=dict(boxstyle="round,pad=0.25", facecolor="#0b1f3a", edgecolor="none", alpha=0.75),
+            )
     style_chart(axf, theme)
     fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
@@ -1739,16 +1771,21 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
 
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=12)
 
-    # Add value labels OUTSIDE bars
+    max_disp = max(disp_counts.values) if len(disp_counts.values) else 0
+    axd.set_xlim(0, max_disp + 10)
+
     for bar in bars:
         width = bar.get_width()
+        x_pos = max(0.2, min(width - 0.4, (max_disp + 10) - 0.4))
         axd.text(
-            width + max(0.3, width * 0.03),
+            x_pos,
             bar.get_y() + bar.get_height() / 2,
             f"{int(width)}",
             va="center",
+            ha="right",
             fontsize=9,
             color=theme["text"],
+            bbox=dict(boxstyle="round,pad=0.25", facecolor="#0b1f3a", edgecolor="none", alpha=0.75),
         )
     style_chart(axd, theme)
     fig_disp.patch.set_facecolor(theme["bg"])
