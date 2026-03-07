@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import gspread
 import streamlit as st
+from streamlit.errors import StreamlitSecretNotFoundError
 from google.oauth2.service_account import Credentials
 import streamlit.components.v1 as components
 import extra_streamlit_components as stx
@@ -36,8 +37,19 @@ def secure_authentication_gate() -> None:
     if st.session_state.authenticated:
         return
 
-    expected_username = st.secrets["auth"]["username"]
-    expected_password = st.secrets["auth"]["password"]
+    try:
+        expected_username = st.secrets["auth"]["username"]
+        expected_password = st.secrets["auth"]["password"]
+    except (StreamlitSecretNotFoundError, KeyError, TypeError):
+        expected_username = os.environ.get("ATA_AUTH_USERNAME", "")
+        expected_password = os.environ.get("ATA_AUTH_PASSWORD", "")
+
+    if not expected_username or not expected_password:
+        st.error(
+            "Authentication is not configured. Add auth credentials in Streamlit secrets "
+            "or set ATA_AUTH_USERNAME / ATA_AUTH_PASSWORD environment variables."
+        )
+        st.stop()
 
     now_utc = datetime.utcnow()
     lockout_until = st.session_state.lockout_until
@@ -1602,8 +1614,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
             fill_value=0,
         )
     row_count = len(heat.index) if not heat.empty else 0
-    fig_height = max(4, row_count * 0.5)
-    fig_heat, axh = plt.subplots(figsize=(6, fig_height))
+    fig_heat, axh = plt.subplots(figsize=(12, 6))
     if heat.empty:
         axh.text(0.5, 0.5, "No failures recorded", ha="center", va="center", color=theme["text"])
         axh.axis("off")
@@ -1611,6 +1622,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         im = axh.imshow(heat.values, cmap="YlOrRd", aspect="auto")
         axh.set_xticks(range(len(heat.columns)))
         axh.set_xticklabels(heat.columns, color=theme["text"])
+        axh.set_xticklabels(axh.get_xticklabels(), rotation=45, ha="right")
         axh.set_yticks(range(len(heat.index)))
         axh.set_yticklabels(heat.index, fontsize=8, color=theme["text"])
         for i in range(len(heat.index)):
@@ -1631,8 +1643,9 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         style_chart(axh, theme)
     fig_heat.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
+    plt.subplots_adjust(bottom=0.22)
     # 3. Pass vs Fail Pie Chart
-    pie_figsize = (6, 6)
+    pie_figsize = (8, 6)
     pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
     fail_points = summary["Failed Points"].sum() if "Failed Points" in summary.columns else 0
     fig_pie, axp = plt.subplots(figsize=pie_figsize)
@@ -1765,7 +1778,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts().sort_values()
     bar_count = len(disp_counts)
     fig_height = max(4, bar_count * 0.6)
-    fig_disp, axd = plt.subplots(figsize=(6, fig_height))
+    fig_disp, axd = plt.subplots(figsize=(8, 6))
 
     bars = axd.barh(disp_counts.index, disp_counts.values, color=theme["primary"])
 
@@ -1790,6 +1803,54 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     style_chart(axd, theme)
     fig_disp.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
+    # 11. Reaudit Ratio Pie Chart
+    fig_reaudit, axr = plt.subplots(figsize=(8, 6))
+    reaudit_series = summary["Reaudit"] if "Reaudit" in summary.columns else pd.Series(["" for _ in range(len(summary))], index=summary.index)
+    reaudit_flag = reaudit_series.astype(str).str.strip().str.lower().eq("yes")
+    reaudit_yes = int(reaudit_flag.sum())
+    reaudit_no = int((~reaudit_flag).sum())
+    axr.pie(
+        [reaudit_yes, reaudit_no],
+        labels=["Reaudit", "Not Reaudit"],
+        autopct="%1.1f%%",
+        colors=[theme["fail"], theme["pass"]],
+        startangle=90,
+        radius=0.78,
+        labeldistance=1.30,
+        pctdistance=1.12,
+        wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
+        textprops={"color": theme["text"], "fontsize": 11, "weight": "bold"},
+    )
+    axr.set_title("Reaudit Ratio", fontweight="bold", fontsize=12)
+    axr.set_aspect("equal")
+    axr.grid(False)
+    style_chart(axr, theme)
+    fig_reaudit.patch.set_facecolor(theme["bg"])
+    plt.tight_layout()
+    # 12. Critical Fail Percentage Pie Chart
+    fig_critical_pie, axc = plt.subplots(figsize=(8, 6))
+    critical_col = summary["Critical Fail"] if "Critical Fail" in summary.columns else pd.Series([False for _ in range(len(summary))], index=summary.index)
+    critical_flag = critical_col.astype(str).str.strip().str.lower().isin(["yes", "true", "1"])
+    critical_yes = int(critical_flag.sum())
+    critical_no = int((~critical_flag).sum())
+    axc.pie(
+        [critical_yes, critical_no],
+        labels=["Critical Fail", "Normal"],
+        autopct="%1.1f%%",
+        colors=[theme["fail"], theme["pass"]],
+        startangle=90,
+        radius=0.78,
+        labeldistance=1.30,
+        pctdistance=1.12,
+        wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
+        textprops={"color": theme["text"], "fontsize": 11, "weight": "bold"},
+    )
+    axc.set_title("Critical Fail Percentage", fontweight="bold", fontsize=12)
+    axc.set_aspect("equal")
+    axc.grid(False)
+    style_chart(axc, theme)
+    fig_critical_pie.patch.set_facecolor(theme["bg"])
+    plt.tight_layout()
     return (
         fig_heat,
         fig_trend,
@@ -1801,6 +1862,8 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         fig_audit_month,
         fig_failed,
         fig_disp,
+        fig_reaudit,
+        fig_critical_pie,
         summary,
         details,
     )
@@ -2494,12 +2557,15 @@ elif nav == "Dashboard":
                 fig_audit_month,
                 fig_failed,
                 fig_disp,
+                fig_reaudit,
+                fig_critical_pie,
                 _summary_unused,
                 _details_unused,
             ) = build_dashboard_figs(summary, details)
             if fig_trend:
                 rows = [
                     (fig_pie, fig_disp),
+                    (fig_reaudit, fig_critical_pie),
                     (fig_trend, fig_qa),
                     (fig_score_month, fig_score_date),
                     (fig_audit_month, fig_audit_date),
@@ -2651,6 +2717,8 @@ elif nav == "Dashboard":
                     fig_audit_date,
                     fig_heat,
                     fig_failed,
+                    fig_reaudit,
+                    fig_critical_pie,
                 ]
                 with d1:
                     st.download_button(
