@@ -4,6 +4,7 @@ import json
 import os
 import sys
 import tempfile
+from collections.abc import Mapping
 from datetime import date, datetime
 from uuid import uuid4
 from pathlib import Path
@@ -40,12 +41,15 @@ def secure_authentication_gate() -> None:
     expected_username, expected_password = "", ""
     try:
         auth_obj = st.secrets.get("auth", {}) if hasattr(st, "secrets") else {}
-        if isinstance(auth_obj, dict):
+        if isinstance(auth_obj, Mapping):
             expected_username = str(auth_obj.get("username", "") or "").strip()
             expected_password = str(auth_obj.get("password", "") or "").strip()
         if not expected_username or not expected_password:
             expected_username = str(st.secrets.get("username", "") or "").strip()
             expected_password = str(st.secrets.get("password", "") or "").strip()
+        if not expected_username or not expected_password:
+            expected_username = str(st.secrets.get("AUTH_USERNAME", "") or "").strip()
+            expected_password = str(st.secrets.get("AUTH_PASSWORD", "") or "").strip()
     except (StreamlitSecretNotFoundError, KeyError, TypeError, AttributeError):
         pass
 
