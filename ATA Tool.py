@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import gspread
 import streamlit as st
+from streamlit.errors import StreamlitSecretNotFoundError
 from google.oauth2.service_account import Credentials
 import streamlit.components.v1 as components
 import extra_streamlit_components as stx
@@ -36,8 +37,19 @@ def secure_authentication_gate() -> None:
     if st.session_state.authenticated:
         return
 
-    expected_username = st.secrets["auth"]["username"]
-    expected_password = st.secrets["auth"]["password"]
+    try:
+        expected_username = st.secrets["auth"]["username"]
+        expected_password = st.secrets["auth"]["password"]
+    except (StreamlitSecretNotFoundError, KeyError, TypeError):
+        expected_username = os.environ.get("ATA_AUTH_USERNAME", "")
+        expected_password = os.environ.get("ATA_AUTH_PASSWORD", "")
+
+    if not expected_username or not expected_password:
+        st.error(
+            "Authentication is not configured. Add auth credentials in Streamlit secrets "
+            "or set ATA_AUTH_USERNAME / ATA_AUTH_PASSWORD environment variables."
+        )
+        st.stop()
 
     now_utc = datetime.utcnow()
     lockout_until = st.session_state.lockout_until
@@ -913,6 +925,15 @@ def compute_weighted_score(df: pd.DataFrame) -> dict:
 # -------------------- EXPORT HELPERS --------------------
 def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme: dict) -> None:
     html_b64 = base64.b64encode(html_to_copy.encode("utf-8")).decode("ascii")
+    success_message = "Copied successfully"
+    key_l = str(key).lower()
+    label_l = str(label).lower()
+    if "copy_body" in key_l or "copy email body" in label_l:
+        success_message = "Evaluation copied"
+    elif "copy_subject" in key_l or "copy email subject" in label_l:
+        success_message = "Subject copied"
+    elif "copy_coach" in key_l or "copy coaching summary" in label_l:
+        success_message = "Summary copied"
 
     js = f"""
     <style>
@@ -936,7 +957,7 @@ def copy_html_to_clipboard_button(label: str, html_to_copy: str, key: str, theme
       }}
       #status-{key} {{
         margin-top: 4px;
-        min-height: 16px;
+        min-height: 20px;
         font-size: 12px;
         line-height: 1.2;
         color: {theme.get('button_text', '#000000')};
@@ -972,7 +993,7 @@ async function copyRichHTML() {{
       }})
     ]);
 
-    statusEl.innerText = "Copied successfully";
+    statusEl.innerText = "{success_message}";
     statusEl.className = "show";
     setTimeout(() => {{
       statusEl.innerText = "";
@@ -994,7 +1015,7 @@ document.getElementById("btn-{key}")
     </script>
     """
 
-    components.html(js, height=60)
+    components.html(js, height=90)
 
 def email_subject_text(record: dict) -> str:
     return f"ATA Evaluation | {record['evaluation_id']} | {record['qa_name']} | {format_date(record['audit_date'])}"
@@ -1477,6 +1498,39 @@ def generate_coaching_summary(evaluation_record: dict, auditor_metrics: dict | p
         f"Follow-Up Timeline\n- {follow_up}"
     )
 
+
+CRITICAL_PARAMETERS = [
+    "Effective Probing / Qualifying Client",
+    "Accurate / Complete Info",
+    "Objection / Call Handling",
+    "Took Lead Ownership",
+    "Follow-up Made Properly",
+    "Adherence to QA Guidelines",
+    "Critical Error Identification",
+]
+
+COACHING_PARAMETERS = [
+    "Call Opening (Readiness / Energy)",
+    "Call Opening 2 (Confirming Lead Source / Meeting Focused)",
+    "Soft Skills (Active Listening / Rapport)",
+    "Positivity / Professionalism / Politeness",
+    "Call Closure / Meeting Summarized",
+    "Accurate Disposition",
+    "Comment / Notes",
+    "Accurate Data Inputs / Shows",
+    "WhatsApp Message Sent",
+    "Evidence & Notes",
+    "Objectivity & Fairness",
+    "Evaluation Variety & Sample Coverage",
+    "Feedback Actionability",
+    "Timeliness & Completeness",
+]
+
+QA_INTERVENTION_PARAMETERS = [
+    "Adherence to QA Guidelines",
+    "Critical Error Identification",
+]
+
 # -------------------- DASHBOARD LOGIC --------------------
 def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFrame | None = None):
     if summary is None or details is None:
@@ -1496,18 +1550,25 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     theme = get_chart_theme()
 
     def add_bar_labels(ax):
-        heights = [patch.get_height() for patch in ax.patches]
+        max_value = max([patch.get_height() for patch in ax.patches], default=0)
+        top_limit = max_value + 10
+        ax.set_ylim(0, top_limit)
         for patch in ax.patches:
             value = patch.get_height()
+            y_pos = max(0.2, min(value - 0.8, top_limit - 0.8))
             ax.annotate(
                 f"{value:.1f}" if isinstance(value, float) else f"{value}",
-                (patch.get_x() + patch.get_width() / 2, value),
+                (patch.get_x() + patch.get_width() / 2, y_pos),
                 ha="center",
-                va="bottom",
-                xytext=(0, 6),
-                textcoords="offset points",
+                va="top",
                 fontsize=9,
                 color=theme["text"],
+                bbox=dict(
+                    boxstyle="round,pad=0.25",
+                    facecolor="#0b1f3a",
+                    edgecolor="none",
+                    alpha=0.75,
+                ),
             )
     # 1. Trend Chart (Failure Rate)
     trend = summary.groupby("Month")["Failure Rate"].mean().sort_index()
@@ -1519,11 +1580,24 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     ax.grid(True, alpha=0.25, color=theme["grid"])
     ax.set_xticks(trend_x)
     ax.set_xticklabels([d.strftime("%b-%y") for d in trend_x])
+    ax.set_xticklabels(ax.get_xticklabels(), rotation=30, ha="right")
+    max_trend = max((trend.values * 100), default=0)
+    ax.set_ylim(0, max_trend + 10)
     for x, y in zip(trend_x, trend.values * 100):
-        ax.annotate(f"{y:.1f}%", (x, y), textcoords="offset points", xytext=(0, 10), ha="center", color=theme["accent"], fontweight="bold")
+        y_pos = max(0.2, min(y - 0.8, (max_trend + 10) - 0.8))
+        ax.annotate(
+            f"{y:.1f}%",
+            (x, y_pos),
+            ha="center",
+            va="top",
+            color=theme["accent"],
+            fontweight="bold",
+            bbox=dict(boxstyle="round,pad=0.25", facecolor="#0b1f3a", edgecolor="none", alpha=0.75),
+        )
     style_chart(ax, theme)
     fig_trend.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
+    plt.subplots_adjust(bottom=0.18)
     # 2. Heatmap
     fail_rows = details[details.get("Result", "") == "Fail"].copy()
     heat = pd.DataFrame()
@@ -1540,8 +1614,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
             fill_value=0,
         )
     row_count = len(heat.index) if not heat.empty else 0
-    fig_height = max(4, row_count * 0.5)
-    fig_heat, axh = plt.subplots(figsize=(6, fig_height))
+    fig_heat, axh = plt.subplots(figsize=(12, 6))
     if heat.empty:
         axh.text(0.5, 0.5, "No failures recorded", ha="center", va="center", color=theme["text"])
         axh.axis("off")
@@ -1549,6 +1622,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         im = axh.imshow(heat.values, cmap="YlOrRd", aspect="auto")
         axh.set_xticks(range(len(heat.columns)))
         axh.set_xticklabels(heat.columns, color=theme["text"])
+        axh.set_xticklabels(axh.get_xticklabels(), rotation=45, ha="right")
         axh.set_yticks(range(len(heat.index)))
         axh.set_yticklabels(heat.index, fontsize=8, color=theme["text"])
         for i in range(len(heat.index)):
@@ -1569,8 +1643,9 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         style_chart(axh, theme)
     fig_heat.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
+    plt.subplots_adjust(bottom=0.22)
     # 3. Pass vs Fail Pie Chart
-    pie_figsize = (6, 6)
+    pie_figsize = (8, 6)
     pass_points = summary["Passed Points"].sum() if "Passed Points" in summary.columns else 0
     fail_points = summary["Failed Points"].sum() if "Failed Points" in summary.columns else 0
     fig_pie, axp = plt.subplots(figsize=pie_figsize)
@@ -1610,7 +1685,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     score_date_labels = [pd.to_datetime(d).strftime("%d-%b") for d in score_by_date.index]
     axsd.bar(score_date_labels, score_by_date.values, color=theme["accent"])
     axsd.set_title("Average Score by Date (%)", fontweight="bold", fontsize=11)
-    axsd.tick_params(axis="x", rotation=30)
+    axsd.set_xticklabels(axsd.get_xticklabels(), rotation=30, ha="right")
     add_bar_labels(axsd)
     style_chart(axsd, theme)
     fig_score_date.patch.set_facecolor(theme["bg"])
@@ -1630,7 +1705,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     ]
     axsm.bar(score_month_labels, score_by_month.values, color=theme["primary"])
     axsm.set_title("Average Score by Month (%)", fontweight="bold", fontsize=11)
-    axsm.tick_params(axis="x", rotation=20)
+    axsm.set_xticklabels(axsm.get_xticklabels(), rotation=30, ha="right")
     add_bar_labels(axsm)
     style_chart(axsm, theme)
     fig_score_month.patch.set_facecolor(theme["bg"])
@@ -1641,7 +1716,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     audit_date_labels = [pd.to_datetime(d).strftime("%d-%b") for d in audits_by_date.index]
     axad.bar(audit_date_labels, audits_by_date.values, color=theme["accent"])
     axad.set_title("Audits per Date", fontweight="bold", fontsize=11)
-    axad.tick_params(axis="x", rotation=30)
+    axad.set_xticklabels(axad.get_xticklabels(), rotation=30, ha="right")
     add_bar_labels(axad)
     style_chart(axad, theme)
     fig_audit_date.patch.set_facecolor(theme["bg"])
@@ -1661,7 +1736,7 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     ]
     axam.bar(audit_month_labels, audits_by_month.values, color=theme["primary"])
     axam.set_title("Audits per Month", fontweight="bold", fontsize=11)
-    axam.tick_params(axis="x", rotation=20)
+    axam.set_xticklabels(axam.get_xticklabels(), rotation=30, ha="right")
     add_bar_labels(axam)
     style_chart(axam, theme)
     fig_audit_month.patch.set_facecolor(theme["bg"])
@@ -1682,8 +1757,20 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     else:
         axf.barh(failed_params.index, failed_params.values, color=theme["fail"])
         axf.set_title("Most Failed Parameters (Top 10)", fontweight="bold", fontsize=11)
+        max_failed = max(failed_params.values) if len(failed_params.values) else 0
+        axf.set_xlim(0, max_failed + 10)
         for i, value in enumerate(failed_params.values):
-            axf.text(value + 0.1, i, f"{value}", va="center", fontsize=8, color=theme["text"])
+            x_pos = max(0.2, min(value - 0.4, (max_failed + 10) - 0.4))
+            axf.text(
+                x_pos,
+                i,
+                f"{value}",
+                va="center",
+                ha="right",
+                fontsize=8,
+                color=theme["text"],
+                bbox=dict(boxstyle="round,pad=0.25", facecolor="#0b1f3a", edgecolor="none", alpha=0.75),
+            )
     style_chart(axf, theme)
     fig_failed.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
@@ -1691,25 +1778,78 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
     disp_counts = summary["Call Disposition"].fillna("Unknown").value_counts().sort_values()
     bar_count = len(disp_counts)
     fig_height = max(4, bar_count * 0.6)
-    fig_disp, axd = plt.subplots(figsize=(6, fig_height))
+    fig_disp, axd = plt.subplots(figsize=(8, 6))
 
     bars = axd.barh(disp_counts.index, disp_counts.values, color=theme["primary"])
 
     axd.set_title("Audits per Disposition", fontweight="bold", fontsize=12)
 
-    # Add value labels OUTSIDE bars
+    max_disp = max(disp_counts.values) if len(disp_counts.values) else 0
+    axd.set_xlim(0, max_disp + 10)
+
     for bar in bars:
         width = bar.get_width()
+        x_pos = max(0.2, min(width - 0.4, (max_disp + 10) - 0.4))
         axd.text(
-            width + max(0.3, width * 0.03),
+            x_pos,
             bar.get_y() + bar.get_height() / 2,
             f"{int(width)}",
             va="center",
+            ha="right",
             fontsize=9,
             color=theme["text"],
+            bbox=dict(boxstyle="round,pad=0.25", facecolor="#0b1f3a", edgecolor="none", alpha=0.75),
         )
     style_chart(axd, theme)
     fig_disp.patch.set_facecolor(theme["bg"])
+    plt.tight_layout()
+    # 11. Reaudit Ratio Pie Chart
+    fig_reaudit, axr = plt.subplots(figsize=(8, 6))
+    reaudit_series = summary["Reaudit"] if "Reaudit" in summary.columns else pd.Series(["" for _ in range(len(summary))], index=summary.index)
+    reaudit_flag = reaudit_series.astype(str).str.strip().str.lower().eq("yes")
+    reaudit_yes = int(reaudit_flag.sum())
+    reaudit_no = int((~reaudit_flag).sum())
+    axr.pie(
+        [reaudit_yes, reaudit_no],
+        labels=["Reaudit", "Not Reaudit"],
+        autopct="%1.1f%%",
+        colors=[theme["fail"], theme["pass"]],
+        startangle=90,
+        radius=0.78,
+        labeldistance=1.30,
+        pctdistance=1.12,
+        wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
+        textprops={"color": theme["text"], "fontsize": 11, "weight": "bold"},
+    )
+    axr.set_title("Reaudit Ratio", fontweight="bold", fontsize=12)
+    axr.set_aspect("equal")
+    axr.grid(False)
+    style_chart(axr, theme)
+    fig_reaudit.patch.set_facecolor(theme["bg"])
+    plt.tight_layout()
+    # 12. Critical Fail Percentage Pie Chart
+    fig_critical_pie, axc = plt.subplots(figsize=(8, 6))
+    critical_col = summary["Critical Fail"] if "Critical Fail" in summary.columns else pd.Series([False for _ in range(len(summary))], index=summary.index)
+    critical_flag = critical_col.astype(str).str.strip().str.lower().isin(["yes", "true", "1"])
+    critical_yes = int(critical_flag.sum())
+    critical_no = int((~critical_flag).sum())
+    axc.pie(
+        [critical_yes, critical_no],
+        labels=["Critical Fail", "Normal"],
+        autopct="%1.1f%%",
+        colors=[theme["fail"], theme["pass"]],
+        startangle=90,
+        radius=0.78,
+        labeldistance=1.30,
+        pctdistance=1.12,
+        wedgeprops={"edgecolor": theme["border"], "linewidth": 1.5},
+        textprops={"color": theme["text"], "fontsize": 11, "weight": "bold"},
+    )
+    axc.set_title("Critical Fail Percentage", fontweight="bold", fontsize=12)
+    axc.set_aspect("equal")
+    axc.grid(False)
+    style_chart(axc, theme)
+    fig_critical_pie.patch.set_facecolor(theme["bg"])
     plt.tight_layout()
     return (
         fig_heat,
@@ -1722,6 +1862,8 @@ def build_dashboard_figs(summary: pd.DataFrame | None = None, details: pd.DataFr
         fig_audit_month,
         fig_failed,
         fig_disp,
+        fig_reaudit,
+        fig_critical_pie,
         summary,
         details,
     )
@@ -2274,6 +2416,7 @@ elif nav == "View":
                     pdf_evaluation(rec),
                     f"ATA_{sel_id}.pdf",
                     "application/pdf",
+                    key=f"pdf_{sel_id}",
                     use_container_width=True,
                 )
                 if pdf_clicked:
@@ -2285,7 +2428,7 @@ elif nav == "View":
 
             row2 = st.columns(3, gap="small")
             with row2[0]:
-                if st.button("✏️ Edit Record", use_container_width=True):
+                if st.button("✏️ Edit Record", key=f"edit_{sel_id}", use_container_width=True):
                     st.session_state.edit_mode = True
                     st.session_state.edit_eval_id = sel_id
                     st.session_state.prefill = {
@@ -2302,7 +2445,7 @@ elif nav == "View":
                     st.session_state.goto_nav = "Evaluation"
                     st.rerun()
             with row2[1]:
-                if st.button("🗑️ Delete Record", use_container_width=True):
+                if st.button("🗑️ Delete Record", key=f"delete_{sel_id}", use_container_width=True):
                     if delete_evaluation(sel_id):
                         st.success(f"Deleted {sel_id}")
                         st.rerun()
@@ -2312,6 +2455,7 @@ elif nav == "View":
                     export_buf,
                     f"ATA_{sel_id}.xlsx",
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    key=f"export_{sel_id}",
                     use_container_width=True,
                 )
                 if export_clicked:
@@ -2319,7 +2463,7 @@ elif nav == "View":
 
             row3 = st.columns(3, gap="small")
             with row3[0]:
-                if st.button("🧠 Generate Coaching Summary", use_container_width=True):
+                if st.button("🧠 Generate Coaching Summary", key=f"gen_coach_{sel_id}", use_container_width=True):
                     auditor_base = compute_auditor_intelligence(summary, details)
                     auditor_risk = compute_risk_flags(auditor_base, details)
                     row_metrics = auditor_risk[auditor_risk["Auditor"].astype(str).str.strip() == str(row["Auditor"]).strip()]
@@ -2336,9 +2480,9 @@ elif nav == "View":
                         active_theme,
                     )
                 else:
-                    st.button("📋 Copy Coaching Summary", use_container_width=True, disabled=True)
+                    st.button("📋 Copy Coaching Summary", key=f"copy_coach_disabled_{sel_id}", use_container_width=True, disabled=True)
             with row3[2]:
-                if st.button("🧹 Clear Coaching Summary", use_container_width=True, disabled=not st.session_state.get("coaching_summary_text")):
+                if st.button("🧹 Clear Coaching Summary", key=f"clear_coach_{sel_id}", use_container_width=True, disabled=not st.session_state.get("coaching_summary_text")):
                     st.session_state.coaching_summary_text = ""
                     st.warning("Coaching Summary Cleared")
                     st.rerun()
@@ -2413,12 +2557,15 @@ elif nav == "Dashboard":
                 fig_audit_month,
                 fig_failed,
                 fig_disp,
+                fig_reaudit,
+                fig_critical_pie,
                 _summary_unused,
                 _details_unused,
             ) = build_dashboard_figs(summary, details)
             if fig_trend:
                 rows = [
                     (fig_pie, fig_disp),
+                    (fig_reaudit, fig_critical_pie),
                     (fig_trend, fig_qa),
                     (fig_score_month, fig_score_date),
                     (fig_audit_month, fig_audit_date),
@@ -2455,7 +2602,8 @@ elif nav == "Dashboard":
                 interactions = summary.copy()
                 interactions["Overall Score %"] = pd.to_numeric(interactions.get("Overall Score %", 0), errors="coerce").fillna(0)
                 interactions["Evaluation Date"] = pd.to_datetime(interactions.get("Evaluation Date"), errors="coerce")
-                detail_fail = details[details.get("Result", "").astype(str).str.lower() == "fail"].copy()
+                detail_fail = details[details.get("Result", "").astype(str).str.strip().str.lower() == "fail"].copy()
+                detail_fail["Evaluation ID"] = detail_fail.get("Evaluation ID", "").astype(str).str.strip()
                 if not detail_fail.empty:
                     detail_fail["Parameter"] = detail_fail.get("Parameter", "").fillna("").astype(str).str.strip()
                     failed_params = detail_fail.groupby("Evaluation ID")["Parameter"].apply(
@@ -2464,28 +2612,44 @@ elif nav == "Dashboard":
                 else:
                     failed_params = pd.DataFrame(columns=["Evaluation ID", "Failed Parameters"])
 
+                interactions["Evaluation ID"] = interactions.get("Evaluation ID", "").astype(str).str.strip()
                 interactions = interactions.merge(failed_params, on="Evaluation ID", how="left")
                 if "Reaudit" not in interactions.columns:
                     interactions["Reaudit"] = ""
-                critical_ids = details[
-                    details.get("Parameter", "").astype(str).str.strip().str.lower().eq("critical error identification")
-                    & details.get("Result", "").astype(str).str.strip().str.lower().eq("fail")
-                ]["Evaluation ID"].astype(str).str.strip().unique().tolist()
-                repeat_by_auditor = auditor_intel.set_index("Auditor")["Repeat Failure Count"] if not auditor_intel.empty else pd.Series(dtype=float)
-                interactions["_repeat"] = interactions.get("Auditor", "").map(repeat_by_auditor).fillna(0)
-                interactions["_critical"] = interactions["Evaluation ID"].astype(str).str.strip().isin(critical_ids)
-                interactions["_score"] = interactions["Overall Score %"] < 85
+                critical_params_lower = {p.lower() for p in CRITICAL_PARAMETERS}
+                coaching_params_lower = {p.lower() for p in COACHING_PARAMETERS}
+                qa_intervention_params_lower = {p.lower() for p in QA_INTERVENTION_PARAMETERS}
+
+                failed_by_eval = detail_fail.groupby("Evaluation ID")["Parameter"].apply(
+                    lambda x: {str(v).strip().lower() for v in x if str(v).strip()}
+                ) if not detail_fail.empty else pd.Series(dtype=object)
+                interactions["_failed_param_set"] = interactions["Evaluation ID"].map(failed_by_eval).apply(lambda x: x if isinstance(x, set) else set())
+                interactions["_critical_param_fail"] = interactions["_failed_param_set"].apply(lambda s: len(s & critical_params_lower) > 0)
+                interactions["_coaching_param_fail"] = interactions["_failed_param_set"].apply(lambda s: len(s & coaching_params_lower) > 0)
+                interactions["_score_lt_50"] = interactions["Overall Score %"] < 50
+                interactions["_score_lt_80"] = interactions["Overall Score %"] < 80
+                interactions["_critical"] = interactions["_critical_param_fail"] | interactions["_score_lt_50"]
+                interactions["_coaching"] = interactions["_critical"] | interactions["_coaching_param_fail"] | interactions["_score_lt_80"]
                 interactions["_reaudit"] = interactions["Reaudit"].astype(str).str.strip().str.lower().eq("yes")
-                interactions = interactions[(interactions["_score"]) | (interactions["_critical"]) | (interactions["_repeat"] >= 1) | (interactions["_reaudit"])]
+                interactions["_qa_param_critical_fail"] = interactions["_failed_param_set"].apply(
+                    lambda s: len(s & qa_intervention_params_lower) > 0
+                )
+                interactions["_qa_intervention"] = interactions["_reaudit"] | (interactions["_critical"] & interactions["_qa_param_critical_fail"])
+                interactions = interactions[
+                    (interactions["_score_lt_80"])
+                    | (interactions["_critical"])
+                    | (interactions["_coaching"])
+                    | (interactions["_reaudit"])
+                ]
 
                 def _reason(r):
                     reasons = []
-                    if r["_score"]:
-                        reasons.append("Score")
                     if r["_critical"]:
-                        reasons.append("Critical")
-                    if r["_repeat"] >= 1:
-                        reasons.append("Repeat")
+                        reasons.append("Critical Fail")
+                    if r["_coaching"]:
+                        reasons.append("Coaching Required")
+                    if r["_score_lt_80"]:
+                        reasons.append("Score < 80")
                     if r["_reaudit"]:
                         reasons.append("Reaudit")
                     return " / ".join(reasons)
@@ -2494,10 +2658,14 @@ elif nav == "Dashboard":
                     st.info("No high-risk interactions detected.")
                 else:
                     interactions["Trigger Reason"] = interactions.apply(_reason, axis=1)
-                    qa_map = risk_df.set_index("Auditor")["QA Intervention Required"] if not risk_df.empty else pd.Series(dtype=bool)
-                    coach_map = risk_df.set_index("Auditor")["Coaching Required"] if not risk_df.empty else pd.Series(dtype=bool)
-                    interactions["QA Intervention Required"] = interactions.get("Auditor", "").map(qa_map).fillna(False).map(lambda x: "Yes" if bool(x) else "No")
-                    interactions["Coaching Required"] = interactions.get("Auditor", "").map(coach_map).fillna(False).map(lambda x: "Yes" if bool(x) else "No")
+                    interactions["Critical Fail"] = interactions["_critical"].map(lambda x: "Yes" if bool(x) else "No")
+                    interactions["Coaching Required"] = interactions["_coaching"].map(lambda x: "Yes" if bool(x) else "No")
+                    interactions["QA Intervention Required"] = interactions["_qa_intervention"].map(lambda x: "Yes" if bool(x) else "No")
+                    interactions["Interaction Indicator"] = interactions.apply(
+                        lambda r: "🔴 Critical Fail" if r["_critical"] else ("🟠 Coaching Required" if r["_coaching"] else "⚪"),
+                        axis=1,
+                    )
+                    interactions["QA Flag"] = interactions["_qa_intervention"].map(lambda x: "🚩" if bool(x) else "")
 
                     interactions = interactions.sort_values("Evaluation Date", ascending=False)
 
@@ -2508,8 +2676,11 @@ elif nav == "Dashboard":
                         "Auditor",
                         "Overall Score %",
                         "Failed Parameters",
+                        "Critical Fail",
                         "Coaching Required",
                         "QA Intervention Required",
+                        "Interaction Indicator",
+                        "QA Flag",
                         "Trigger Reason",
                     ]
                     for c in out_cols:
@@ -2546,6 +2717,8 @@ elif nav == "Dashboard":
                     fig_audit_date,
                     fig_heat,
                     fig_failed,
+                    fig_reaudit,
+                    fig_critical_pie,
                 ]
                 with d1:
                     st.download_button(
